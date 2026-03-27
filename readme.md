@@ -28,10 +28,18 @@ Current Build
 ---
 You can [download pre-compiled versions of this repo here](https://codeberg.org/godotsteam/godotsteam/releases).
 
-**Version 4.17.1 Changes**
+**Version 4.18 Changes**
 
-- Changed: SCsub and config.py for ARM64 and Android
-- Fixed: potential crash in disconnect_peer; thanks to ***bearlikelion***
+- Added: new functions and enums from Steamworks SDK 1.64
+- Added: updater to simplify updating GDExtension plug-in
+- Changed: part one of in-editor doc updates, adding text for constants and enums
+- Changed: `getBetaInfo` now returns **last_updated** timestamp
+- Changed: various NULLs to nullptr
+- Changed: **changed_id** to **user_changed_id** in `lobby_chat_update` callback
+- Changed: updated in-editor docs for SDK 1.64
+- Changed: `receiveMessageOnPollGroup` and `receiveMessagesOnChannel` message releasing to Flat API version
+- Fixed: enum namespace qualification for proper extension_api.json generation, thanks to ***leetleaf***
+- Fixed: some incorrect linking to Steam Flat API objects
 
 [You can read more change-logs here](https://godotsteam.com/changelog/gdextension/).
 
@@ -80,6 +88,11 @@ Usage
 Do not use the GDExtension version of GodotSteam with any of the module versions whether it be our pre-compiled versions or ones you compile.  They are not compatible with each other.
 
 When exporting with the GDExtension version, please use the normal Godot Engine templates instead of our GodotSteam templates or you will have a lot of issues.
+
+
+No LLM Policy / No "AI" Policy
+---
+No LLMs are allowed to be used for issues, patches, or pull-requests.  They will be closed or rejected and the submitter may be blocked from future submissions.
 
 
 License

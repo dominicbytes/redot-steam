@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://cyniebd6yahu5"]
+
+[ext_resource type="Script" uid="uid://1oo0gvamoxgp" path="res://addons/godotsteam/editor/steamworks_panel.gd" id="1_qn6cd"]
+[ext_resource type="Script" uid="uid://b4nvgu7h84u53" path="res://addons/godotsteam/editor/updates/updates.gd" id="2_qn6cd"]
+
+[node name="Steamworks" type="Control" unique_id=1907733354]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_qn6cd")
+metadata/_edit_lock_ = true
+
+[node name="VFrame" type="VBoxContainer" parent="." unique_id=1024649829]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+metadata/_edit_lock_ = true
+
+[node name="Updates" type="FoldableContainer" parent="VFrame" unique_id=1088558945]
+layout_mode = 2
+title = "Updates"
+script = ExtResource("2_qn6cd")
+metadata/_edit_lock_ = true
+
+[node name="VFrame" type="VBoxContainer" parent="VFrame/Updates" unique_id=677794008]
+layout_mode = 2
+theme_override_constants/separation = 10
+metadata/_edit_lock_ = true
+
+[node name="InstalledLabel" type="Label" parent="VFrame/Updates/VFrame" unique_id=1950302934]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Installed version 4.18"
+metadata/_edit_lock_ = true
+
+[node name="HFrame" type="HBoxContainer" parent="VFrame/Updates/VFrame" unique_id=439149119]
+layout_mode = 2
+metadata/_edit_lock_ = true
+
+[node name="UpdateLabel" type="Label" parent="VFrame/Updates/VFrame/HFrame" unique_id=841493265]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+metadata/_edit_lock_ = true
+
+[node name="UpdateButton" type="Button" parent="VFrame/Updates/VFrame/HFrame" unique_id=1559552987]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Up-to-date"
+metadata/_edit_lock_ = true

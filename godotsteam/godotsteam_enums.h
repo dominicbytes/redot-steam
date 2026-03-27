@@ -1605,6 +1605,7 @@ enum ParentalFeature {
 	FEATURE_SITE_LICENSE = k_EFeatureSiteLicense,
 	FEATURE_KIOSK_MODE = k_EFeatureKioskMode_Deprecated,
 	FEATURE_BLOCK_ALWAYS = k_EFeatureBlockAlways,
+	FEATURE_DESKTOP = k_EFeatureDesktop,
 	FEATURE_MAX = k_EFeatureMax
 };
 
