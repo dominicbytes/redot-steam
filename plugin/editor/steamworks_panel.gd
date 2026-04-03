@@ -1,4 +1,5 @@
 @tool
+@icon("uid://dhn3vkdxvetbn")
 extends Control
 
 

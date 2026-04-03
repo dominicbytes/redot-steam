@@ -44,7 +44,7 @@ func set_defaults() -> void:
 
 #region Checking for updates
 func check_for_updates() -> void:
-	if not ProjectSettings.get_setting("steam/settings/check_for_updates"):
+	if not ProjectSettings.get_setting("steam/settings/godotsteam/check_for_updates"):
 		return
 
 	http_request = HTTPRequest.new()
