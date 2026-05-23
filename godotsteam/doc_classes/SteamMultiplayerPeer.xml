@@ -93,6 +93,8 @@
 		<member name="no_nagle" type="bool" setter="set_no_nagle" getter="get_no_nagle" default="false">
 			Whether or not to use [constant Steam.NETWORKING_SEND_NO_DELAY] flag.
 		</member>
+		<member name="server_relay" type="bool" setter="set_server_relay" getter="get_server_relay" default="false">
+		</member>
 	</members>
 	<constants>
 		<constant name="DEBUG_LEVEL_NONE" value="0" enum="DebugLevel">

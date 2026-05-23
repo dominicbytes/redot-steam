@@ -774,18 +774,18 @@ public:
 	void advertiseGame(const String &server_ip = "", int port = 0);
 	BeginAuthSessionResult beginAuthSession(PackedByteArray ticket, int ticket_size, uint64_t steam_id);
 	void cancelAuthTicket(uint32_t auth_ticket);
-	Dictionary decompressVoice(const PackedByteArray &voice_data, uint32_t sample_rate, uint32_t buffer_size_override = 20480);
+	Dictionary decompressVoice(const PackedByteArray &voice_data, uint32_t sample_rate = 11025, uint32_t buffer_size = 20480);
 	void endAuthSession(uint64_t steam_id);
 	Dictionary getAuthSessionTicket(uint64_t remote_steam_id = 0);
 	uint32_t getAuthTicketForWebApi(const String &service_identity = "");
-	Dictionary getDecompressedVoice(uint32_t buffer_in_size_override = 0, uint32_t buffer_out_size_override = 20480, uint32_t sample_rate_override = 0);
+	Dictionary getAvailableVoice();
 	void getDurationControl();
 	Dictionary getEncryptedAppTicket();
 	int getGameBadgeLevel(int series, bool foil);
 	void getMarketEligibility();
 	int getPlayerSteamLevel();
 	uint64_t getSteamID();
-	Dictionary getVoice(uint32_t buffer_size_override = 0);
+	Dictionary getVoice(uint32_t buffer_size = 1024);
 	uint32_t getVoiceOptimalSampleRate();
 	Dictionary initiateGameConnection(uint64_t server_id, String server_ip, uint16_t server_port, bool secure);
 	bool isBehindNAT();
@@ -924,7 +924,7 @@ private:
 	void start_initialization_verbose(uint32_t app_id = 0, bool embed_callbacks = false);
 
 	// Main
-	String godotsteam_version = "4.18";
+	String godotsteam_version = "4.19";
 	Dictionary init_result;
 	bool is_init_success;
 	bool were_callbacks_embedded;
@@ -951,9 +951,6 @@ private:
 
 	// Networking Sockets
 	uint64_t networking_microseconds = 0;
-//	SteamDatagramHostedAddress hosted_address;
-//	PackedByteArray routing_blob;
-//	SteamDatagramRelayAuthTicket relay_auth_ticket;
 
 	// Utils
 	uint64_t api_handle = 0;

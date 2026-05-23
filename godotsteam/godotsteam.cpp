@@ -2534,6 +2534,7 @@ Dictionary Steam::getItemDefinitionProperty(uint32_t definition, const String& n
 	uint32_t buffer_size = std::size(buffer);
 	bool steam_success = false;
 
+	// Gets a comma-separated list of properties
 	if (name.is_empty()) {
 		steam_success = SteamAPI_ISteamInventory_GetItemDefinitionProperty(SteamAPI_SteamInventory(), definition, NULL, buffer, &buffer_size);
 	}
@@ -6148,12 +6149,14 @@ void Steam::cancelAuthTicket(uint32_t auth_ticket) {
 }
 
 // Decodes the compressed voice data returned by getVoice.
-Dictionary Steam::decompressVoice(const PackedByteArray &voice_data, uint32_t sample_rate, uint32_t buffer_size_override) {
+Dictionary Steam::decompressVoice(const PackedByteArray &voice_data, uint32_t sample_rate, uint32_t buffer_size) {
 	Dictionary decompressed;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUser() == nullptr, decompressed, "User class not found, Steam may not be initialized: decompressVoice");
+	// The decoder supports any sample rate from 11025 to 48000
+	sample_rate = CLAMP(sample_rate, 11025, 48000);
 	uint32_t written = 0;
 	PackedByteArray output_buffer;
-	output_buffer.resize(buffer_size_override);
+	output_buffer.resize(buffer_size);
 
 	VoiceResult result = (VoiceResult)SteamAPI_ISteamUser_DecompressVoice(SteamAPI_SteamUser(), voice_data.ptr(), voice_data.size(), output_buffer.ptrw(), output_buffer.size(), &written, sample_rate);
 	decompressed["result"] = result;
@@ -6202,38 +6205,13 @@ uint32_t Steam::getAuthTicketForWebApi(const String &service_identity) {
 	}
 }
 
-Dictionary Steam::getDecompressedVoice(uint32_t buffer_in_size_override, uint32_t buffer_out_size_override, uint32_t sample_rate_override) {
+Dictionary Steam::getAvailableVoice() {
 	Dictionary voice_data;
-	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUser() == nullptr, voice_data, "User class not found, Steam may not be initialized: getDecompressedVoice");
-	uint32_t buffer_size = buffer_in_size_override;
-	if (buffer_size == 0) {
-		SteamAPI_ISteamUser_GetAvailableVoice(SteamAPI_SteamUser(), &buffer_size, 0, 0);
-	}
-
-	void *buffer = new uint8_t[buffer_size];
-
-	uint32_t compressed_written = 0;
-	EVoiceResult compressed_result = SteamAPI_ISteamUser_GetVoice(SteamAPI_SteamUser(), true, buffer, buffer_size, &compressed_written, false, 0, 0, 0, 0);
-
-	uint32_t sample_rate = sample_rate_override;
-	if (sample_rate == 0) {
-		sample_rate = SteamAPI_ISteamUser_GetVoiceOptimalSampleRate(SteamAPI_SteamUser());
-	}
-
-	PackedByteArray output_buffer;
-	output_buffer.resize(buffer_out_size_override);
-
-	uint32_t output_written = 0;
-	EVoiceResult result = SteamAPI_ISteamUser_DecompressVoice(SteamAPI_SteamUser(), buffer, compressed_written, output_buffer.ptrw(), output_buffer.size(), &output_written, sample_rate);
-	if (result == k_EVoiceResultBufferTooSmall) {
-		output_buffer.resize(output_written);
-	}
-
-	voice_data["compressed_result"] = compressed_result;
-	voice_data["compressed_written"] = compressed_written;
-	voice_data["output_result"] = result;
-	voice_data["output_buffer"] = output_buffer;
-	voice_data["output_written"] = output_written;
+	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUser() == nullptr, voice_data, "User class not found, Steam may not be initialized: getAvailableVoice");
+	uint32_t bytes_available = 0;
+	EVoiceResult result = SteamAPI_ISteamUser_GetAvailableVoice(SteamAPI_SteamUser(), &bytes_available, nullptr, 0);
+	voice_data["size"] = bytes_available;
+	voice_data["result"] = (VoiceResult)result;
 	return voice_data;
 }
 
@@ -6287,24 +6265,19 @@ uint64_t Steam::getSteamID() {
 }
 
 // Read captured audio data from the microphone buffer.
-Dictionary Steam::getVoice(uint32_t buffer_size_override) {
+Dictionary Steam::getVoice(uint32_t buffer_size) {
 	Dictionary voice_data;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUser() == nullptr, voice_data, "User class not found, Steam may not be initialized: getVoice");
-	uint32_t buffer_size = buffer_size_override;
-	if (buffer_size == 0) {
-		SteamAPI_ISteamUser_GetAvailableVoice(SteamAPI_SteamUser(), &buffer_size, 0, 0);
-	}
-
 	PackedByteArray buffer = PackedByteArray();
 	buffer.resize(buffer_size);
+	uint32_t bytes_written = 0;
 
-	uint32_t written = 0;
-	int result = SteamAPI_ISteamUser_GetVoice(SteamAPI_SteamUser(), true, buffer.ptrw(), buffer_size, &written, false, NULL, 0, NULL, 0);
-	buffer.resize(written);
+	EVoiceResult result = SteamAPI_ISteamUser_GetVoice(SteamAPI_SteamUser(), true, buffer.ptrw(), buffer_size, &bytes_written, false, nullptr, 0, nullptr, 0);
+	buffer.resize(bytes_written);
 
 	voice_data["result"] = result;
 	voice_data["buffer"] = buffer;
-	voice_data["written"] = written;
+	voice_data["size"] = bytes_written;
 	return voice_data;
 }
 
@@ -9626,17 +9599,17 @@ void Steam::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("advertiseGame", "server_ip", "port"), &Steam::advertiseGame, DEFVAL(""), DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("beginAuthSession", "ticket", "ticket_size", "steam_id"), &Steam::beginAuthSession);
 	ClassDB::bind_method(D_METHOD("cancelAuthTicket", "auth_ticket"), &Steam::cancelAuthTicket);
-	ClassDB::bind_method(D_METHOD("decompressVoice", "voice_data", "sample_rate", "buffer_size_override"), &Steam::decompressVoice, DEFVAL(20480));
+	ClassDB::bind_method(D_METHOD("decompressVoice", "voice_data", "sample_rate", "buffer_size"), &Steam::decompressVoice, DEFVAL(11025), DEFVAL(20480));
 	ClassDB::bind_method(D_METHOD("endAuthSession", "steam_id"), &Steam::endAuthSession);
 	ClassDB::bind_method(D_METHOD("getAuthSessionTicket", "remote_steam_id"), &Steam::getAuthSessionTicket, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("getAuthTicketForWebApi", "service_identity"), &Steam::getAuthTicketForWebApi, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("getDecompressedVoice", "buffer_in_size_override", "buffer_out_size_override", "sample_rate_override"), &Steam::getDecompressedVoice, DEFVAL(0), DEFVAL(20480), DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("getAvailableVoice"), &Steam::getAvailableVoice);
 	ClassDB::bind_method(D_METHOD("getDurationControl"), &Steam::getDurationControl);
 	ClassDB::bind_method(D_METHOD("getEncryptedAppTicket"), &Steam::getEncryptedAppTicket);
 	ClassDB::bind_method(D_METHOD("getGameBadgeLevel", "series", "foil"), &Steam::getGameBadgeLevel);
 	ClassDB::bind_method(D_METHOD("getPlayerSteamLevel"), &Steam::getPlayerSteamLevel);
 	ClassDB::bind_method(D_METHOD("getSteamID"), &Steam::getSteamID);
-	ClassDB::bind_method(D_METHOD("getVoice", "buffer_size_override"), &Steam::getVoice, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("getVoice", "buffer_size"), &Steam::getVoice, DEFVAL(1024));
 	ClassDB::bind_method(D_METHOD("getVoiceOptimalSampleRate"), &Steam::getVoiceOptimalSampleRate);
 	ClassDB::bind_method(D_METHOD("initiateGameConnection", "server_id", "server_ip", "server_port", "secure"), &Steam::initiateGameConnection);
 	ClassDB::bind_method(D_METHOD("isBehindNAT"), &Steam::isBehindNAT);

@@ -28,9 +28,20 @@ Current Build
 ---
 You can [download pre-compiled versions of this repo here](https://codeberg.org/godotsteam/godotsteam/releases).
 
-**Version 4.18.1 Changes**
+**Version 4.19 Changes**
 
-- Fixed: dock scripts for Godot 4.4.x to 4.5.x
+- Added: `getAvailableVoice()` has been added back in
+- Changed: updated last of constants for in-editor docs
+- Changed: `sample_rate_override`, `buffer_size_override`, `buffer_out_size_override` parameters all renamed to drop \_override portion
+- Changed: set `getVoice()` defaults `buffer_size` to 1024, as in Valve's SpaceWar example
+- Changed: `getVoice()` key `written` is now `size`
+- Changed: `decompressVoice()` defaults `sample_rate` at 11025, as in Valve's SpaceWar example
+- Changed: `decompressVoice()` now clamps `sample_rate` between 11025 and 48000 per SDK decoder notes
+- Changed: `getDecompressedVoice()` was rewritten based on changes to `getVoice()` and `decompressVoice()`
+- Changed: `getDecompressedVoice()` returned dictionary key changes - `compressed_written` to `compressed_size`, `output_result` to `decompressed_result`, `output_buffer` to `decompressed_buffer`, `output_written` to `decompressed_size`
+- Changed: various Input action origin enum names for readability
+- Fixed: XBOX_ORIGIN_LEFT_STICK_DPAD_EAST misspelled as XBOX_ORIGIN_LEFT_STICK_DPAD_EAT
+- Removed: `getDecompressedVoice()` as the merged functions need to be separate for usefulness
 
 [You can read more change-logs here](https://godotsteam.com/changelog/gdextension/).
 
@@ -57,8 +68,9 @@ GodotSteam Version | Broken Compatibility
 4.11 | setLeaderboardDetailsMax removed
 4.13 | getItemDefinitionProperty return a dictionary, html_needs_paint key 'bgra' changed to 'rbga'
 4.14 | Removed first argument for stat request in steamInit and steamInitEx, steamInit returns intended bool value
-4.16 | Variety of small break points, refer to [4.16 changelog for details](https://godotsteam.com/changelog/godot4/)
+4.16 | Variety of small break points, refer to [4.16 changelog for details](https://godotsteam.com/changelog/godot4/#version-416)
 4.17 | Windows projects using Steam SDK 1.63 are meant to work with Proton 11 or Experimental on Linux / Steam Deck.
+4.19 | Lots of changes to Voice functions, refer to [4.19 changelog for details](https://godotsteam.com/changelog/godot4/#version-419)
 
 
 Known Issues
