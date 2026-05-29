@@ -1,7 +1,8 @@
 @tool
-@icon("uid://dhn3vkdxvetbn")
 extends Control
 
+@onready var container_frame: VBoxContainer = %ContainerFrame
 
-func _ready() -> void:
-	pass
+
+func add_companion_dock(companion_dock: Control) -> void:
+	container_frame.add_child(companion_dock)

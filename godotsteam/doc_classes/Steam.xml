@@ -12216,7 +12216,7 @@
 		<constant name="REMOTE_STORAGE_PUBLISHED_VISIBILITY_UNLISTED" value="3" enum="RemoteStoragePublishedFileVisibility">
 			Visible to everyone, but will not be returned in any global queries. Will also not be returned in any user lists unless the caller is the creator or a subscriber.
 		</constant>
-				<constant name="RESULT_NONE" value="0" enum="Result">
+		<constant name="RESULT_NONE" value="0" enum="Result">
 			No result.
 		</constant>
 		<constant name="RESULT_OK" value="1" enum="Result">
@@ -12435,8 +12435,8 @@
 		<constant name="RESULT_ACCOUNT_LOCKED_DOWN" value="73" enum="Result">
 			-
 		</constant>
-		<constant name="RESULT_ACCOUNT_LOG_ON_DENIED_VERIFIED_EMAIL_REQUIRED" enum="Result">
-			-k_EResultAccountLogonDeniedVerifiedEmailRequired" value="-
+		<constant name="RESULT_ACCOUNT_LOG_ON_DENIED_VERIFIED_EMAIL_REQUIRED" value="74" enum="Result">
+			Account login denied due to 2nd-factor verified-email requirement.
 		</constant>
 		<constant name="RESULT_NO_MATCHING_URL" value="75" enum="Result">
 			-

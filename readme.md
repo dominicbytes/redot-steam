@@ -28,20 +28,10 @@ Current Build
 ---
 You can [download pre-compiled versions of this repo here](https://codeberg.org/godotsteam/godotsteam/releases).
 
-**Version 4.19 Changes**
+**Version 4.19.1 Changes**
 
-- Added: `getAvailableVoice()` has been added back in
-- Changed: updated last of constants for in-editor docs
-- Changed: `sample_rate_override`, `buffer_size_override`, `buffer_out_size_override` parameters all renamed to drop \_override portion
-- Changed: set `getVoice()` defaults `buffer_size` to 1024, as in Valve's SpaceWar example
-- Changed: `getVoice()` key `written` is now `size`
-- Changed: `decompressVoice()` defaults `sample_rate` at 11025, as in Valve's SpaceWar example
-- Changed: `decompressVoice()` now clamps `sample_rate` between 11025 and 48000 per SDK decoder notes
-- Changed: `getDecompressedVoice()` was rewritten based on changes to `getVoice()` and `decompressVoice()`
-- Changed: `getDecompressedVoice()` returned dictionary key changes - `compressed_written` to `compressed_size`, `output_result` to `decompressed_result`, `output_buffer` to `decompressed_buffer`, `output_written` to `decompressed_size`
-- Changed: various Input action origin enum names for readability
-- Fixed: XBOX_ORIGIN_LEFT_STICK_DPAD_EAST misspelled as XBOX_ORIGIN_LEFT_STICK_DPAD_EAT
-- Removed: `getDecompressedVoice()` as the merged functions need to be separate for usefulness
+- Changed: commented out possible issue with removing dock node
+- Fixed: in-editor docs error, thanks to ***evanwang0***
 
 [You can read more change-logs here](https://godotsteam.com/changelog/gdextension/).
 
