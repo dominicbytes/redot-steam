@@ -205,8 +205,12 @@ void SteamPacketPeer::disconnect_peer(bool p_force) {
 void SteamPacketPeer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_steam_id"),
 			&SteamPacketPeer::get_steam_id);
+	ClassDB::bind_method(D_METHOD("get_connection_handle"),
+			&SteamPacketPeer::get_connection_handle);
 	ClassDB::bind_method(D_METHOD("get_peer_id"),
 			&SteamPacketPeer::get_peer_id);
+	ClassDB::bind_method(D_METHOD("get_state"),
+			&SteamPacketPeer::get_state);
 	ClassDB::bind_method(D_METHOD("disconnect_peer", "force"),
 			&SteamPacketPeer::disconnect_peer, DEFVAL(false));
 
