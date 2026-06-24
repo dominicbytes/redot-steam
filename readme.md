@@ -28,10 +28,23 @@ Current Build
 ---
 You can [download pre-compiled versions of this repo here](https://codeberg.org/godotsteam/godotsteam/releases).
 
-**Version 4.19.1 Changes**
+**Version 4.20 Changes**
 
-- Changed: commented out possible issue with removing dock node
-- Fixed: in-editor docs error, thanks to ***evanwang0***
+- Added: app type toggle in Project Settings
+- Added: various app ID fields for game, demo, playtest, and tool to ProjectSettings
+- Added: update process to convert old project settings to new format
+- Added: check for mismatched Steam API file on Windows and Steam
+- Added: new tutorial links to in-editor docs
+- Added: binds for `get_connection_handle()` and `get_state()` for SteamPacketPeer, thanks to ***jdbool***
+- Changed: initialization process can use correct ID based on app type setting
+- Changed: `initFilterText()` no longer takes argument as it is meant for future use
+- Changed: `lobby_data_update` callback now returns bool for success parameter
+- Changed: PERSONA_CHANGE_FACEBOOK_INFO updated to PERSONA_CHANGE_BROADCAST
+- Fixed: `filterText()` breaking character encoding during filtering process
+- Fixed: missing networking enum binds
+- Fixed: minor in-editor doc regressions
+- Fixed: minor enum regressions
+- Fixed: crash in `lobby_chat_update` when lobby member leaves with MultiplayerPeer, thanks to ***bearlikelion***
 
 [You can read more change-logs here](https://godotsteam.com/changelog/gdextension/).
 
@@ -61,6 +74,7 @@ GodotSteam Version | Broken Compatibility
 4.16 | Variety of small break points, refer to [4.16 changelog for details](https://godotsteam.com/changelog/godot4/#version-416)
 4.17 | Windows projects using Steam SDK 1.63 are meant to work with Proton 11 or Experimental on Linux / Steam Deck.
 4.19 | Lots of changes to Voice functions, refer to [4.19 changelog for details](https://godotsteam.com/changelog/godot4/#version-419)
+4.20 | Godot 4.7 changed callable_method_pointer.h to callable_mp.h which will break backwards compatibilty
 
 
 Known Issues

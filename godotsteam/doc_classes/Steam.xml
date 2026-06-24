@@ -31,6 +31,7 @@
 		<link title="Remove Steam">https://godotsteam.com/tutorials/remove_steam/</link>
 		<link title="Rich Presence">https://godotsteam.com/tutorials/rich_presence/</link>
 		<link title="Stats and Achievements">https://godotsteam.com/tutorials/stats_achievements/</link>
+		<link title="Text Filtering">https://godotsteam.com/tutorials/text_filtering/</link>
 		<link title="Voice">https://godotsteam.com/tutorials/voice</link>
 		<link title="Workshop">https://godotsteam.com/tutorials/workshop/</link>
 	</tutorials>
@@ -3914,7 +3915,6 @@
 		</method>
 		<method name="initFilterText">
 			<return type="bool" />
-			<param index="0" name="filter_options" type="int" />
 			<description>
 				Initializes text filtering, loading dictionaries for the language the game is running in.
 				Users can customize the text filter behavior in their Steam Account preferences.
@@ -8994,7 +8994,7 @@
 		</constant>
 		<constant name="DENY_MEMORY_CORRUPTION" value="9" enum="DenyReason">
 		</constant>
-		<constant name="DENY_INCOMPATIBLE_SOFTWARE" value="10" enum="DenyReason">			
+		<constant name="DENY_INCOMPATIBLE_SOFTWARE" value="10" enum="DenyReason">
 		</constant>
 		<constant name="DENY_STEAM_CONNECTION_LOST" value="11" enum="DenyReason">
 			The server lost connection to Steam.
@@ -9099,7 +9099,7 @@
 			Enter dismisses the keyboard.
 		</constant>
 		<constant name="FLOATING_GAMEPAD_TEXT_INPUT_MODE_MULTIPLE_LINES" value="1" enum="FloatingGamepadTextInputMode">
-		 	User needs to explictly close the keyboard.
+			User needs to explictly close the keyboard.
 		</constant>
 		<constant name="FLOATING_GAMEPAD_TEXT_INPUT_MODE_EMAIL" value="2" enum="FloatingGamepadTextInputMode">
 			Keyboard layout is email, enter dismisses the keyboard.
@@ -9765,8 +9765,7 @@
 		<constant name="INPUT_ACTION_ORIGIN_PS4_GYRO_ROLL" value="102" enum="InputActionOrigin">
 			(Sony Dualshock 4) gyroscope, analog movement on the Roll axis (tilt head left towards shoulder, tilt head right towards other shoulder).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS4_RESERVED0" value="103" enum="InputActionOrigin">
-			Reserved for future use.
+		<constant name="INPUT_ACTION_ORIGIN_PS4_DPAD_MOVE" value="103" enum="InputActionOrigin">
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS4_RESERVED1" value="104" enum="InputActionOrigin">
 			Reserved for future use.
@@ -9798,238 +9797,231 @@
 		<constant name="INPUT_ACTION_ORIGIN_PS4_RESERVED10" value="113" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_A" value="114" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_A" value="114" enum="InputActionOrigin">
 			(XB1) digital face button A.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_B" value="115" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_B" value="115" enum="InputActionOrigin">
 			(XB1) digital face button B.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_X" value="116" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_X" value="116" enum="InputActionOrigin">
 			(XB1) digital face button Cross.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_Y" value="117" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_Y" value="117" enum="InputActionOrigin">
 			(XB1) digital face button Y.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_LEFT_BUMPER" value="118" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_BUMPER" value="118" enum="InputActionOrigin">
 			(XB1) digital left shoulder button (aka left bumper).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RIGHT_BUMPER" value="119" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_BUMPER" value="119" enum="InputActionOrigin">
 			(XB1) digital right shoulder button (aka right bumper).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_MENU" value="120" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_MENU" value="120" enum="InputActionOrigin">
 			(XB1) digital menu button (aka start).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_VIEW" value="121" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_VIEW" value="121" enum="InputActionOrigin">
 			(XB1) digital view button (aka back).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_LEFT_TRIGGER_PULL" value="122" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_TRIGGER_PULL" value="122" enum="InputActionOrigin">
 			(XB1) left analog trigger, pulled by any amount (analog value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_LEFT_TRIGGER_CLICK" value="123" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_TRIGGER_CLICK" value="123" enum="InputActionOrigin">
 			(XB1) left analog trigger, pulled in all the way (digital value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RIGHT_TRIGGER_PULL" value="124" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_TRIGGER_PULL" value="124" enum="InputActionOrigin">
 			(XB1) right analog trigger, pulled by any amount (analog value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RIGHT_TRIGGER_CLICK" value="125" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_TRIGGER_CLICK" value="125" enum="InputActionOrigin">
 			(XB1) right analog trigger, pulled in all the way (digital value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_LEFT_STICK_MOVE" value="126" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_STICK_MOVE" value="126" enum="InputActionOrigin">
 			(XB1) left joystick, movement on any axis (analog value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_LEFT_STICK_CLICK" value="127" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_STICK_CLICK" value="127" enum="InputActionOrigin">
 			(XB1) left joystick, clicked in (digital value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_LEFT_STICK_DPAD_NORTH" value="128" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_STICK_DPAD_NORTH" value="128" enum="InputActionOrigin">
 			(XB1) left joystick, digital movement (upper quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_LEFT_STICK_DPAD_SOUTH" value="129" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_STICK_DPAD_SOUTH" value="129" enum="InputActionOrigin">
 			(XB1) left joystick, digital movement (lower quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_LEFT_STICK_DPAD_WEST" value="130" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_STICK_DPAD_WEST" value="130" enum="InputActionOrigin">
 			(XB1) left joystick, digital movement (left quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_LEFT_STICK_DPAD_EAST" value="131" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_STICK_DPAD_EAST" value="131" enum="InputActionOrigin">
 			(XB1) left joystick, digital movement (right quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RIGHT_STICK_MOVE" value="132" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_STICK_MOVE" value="132" enum="InputActionOrigin">
 			(XB1) right joystick, movement on any axis (analog value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RIGHT_STICK_CLICK" value="133" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_STICK_CLICK" value="133" enum="InputActionOrigin">
 			(XB1) right joystick, clicked in (digital value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RIGHT_STICK_DPAD_NORTH" value="134" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_STICK_DPAD_NORTH" value="134" enum="InputActionOrigin">
 			(XB1) right joystick, digital movement (upper quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RIGHT_STICK_DPAD_SOUTH" value="135" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_STICK_DPAD_SOUTH" value="135" enum="InputActionOrigin">
 			(XB1) right joystick, digital movement (lower quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RIGHT_STICK_DPAD_WEST" value="136" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_STICK_DPAD_WEST" value="136" enum="InputActionOrigin">
 			(XB1) right joystick, digital movement (left quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RIGHT_STICK_DPAD_EAST" value="137" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_STICK_DPAD_EAST" value="137" enum="InputActionOrigin">
 			(XB1) right joystick, digital movement (right quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_DPAD_NORTH" value="138" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_DPAD_NORTH" value="138" enum="InputActionOrigin">
 			(XB1) digital pad, pressed (upper quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_DPAD_SOUTH" value="139" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_DPAD_SOUTH" value="139" enum="InputActionOrigin">
 			(XB1) digital pad, pressed (lower quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_DPAD_WEST" value="140" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_DPAD_WEST" value="140" enum="InputActionOrigin">
 			(XB1) digital pad, pressed (left quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_DPAD_EAST" value="141" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_DPAD_EAST" value="141" enum="InputActionOrigin">
 			(XB1) digital pad, pressed (right quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED0" value="142" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_DPAD_MOVE" value="142" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_GRIP_LOWER" value="143" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_LEFT_GRIP_UPPER" value="144" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_GRIP_LOWER" value="145" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RIGHT_GRIP_UPPER" value="146" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_SHARE" value="147" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RESERVED6" value="148" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED1" value="143" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RESERVED7" value="149" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED2" value="144" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RESERVED8" value="150" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED3" value="145" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RESERVED9" value="151" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED4" value="146" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOXONE_RESERVED10" value="152" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED5" value="147" enum="InputActionOrigin">
-			Reserved for future use.
-		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED6" value="148" enum="InputActionOrigin">
-			Reserved for future use.
-		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED7" value="149" enum="InputActionOrigin">
-			Reserved for future use.
-		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED8" value="150" enum="InputActionOrigin">
-			Reserved for future use.
-		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED9" value="151" enum="InputActionOrigin">
-			Reserved for future use.
-		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_ONE_RESERVED10" value="152" enum="InputActionOrigin">
-			Reserved for future use.
-		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_A" value="153" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_A" value="153" enum="InputActionOrigin">
 			(X360) digital face button A.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_B" value="154" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_B" value="154" enum="InputActionOrigin">
 			(X360) digital face button B.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_X" value="155" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_X" value="155" enum="InputActionOrigin">
 			(X360) digital face button X.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_Y" value="156" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_Y" value="156" enum="InputActionOrigin">
 			(X360) digital face button Y.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_LEFT_BUMPER" value="157" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_LEFT_BUMPER" value="157" enum="InputActionOrigin">
 			(X360) digital left shoulder button (aka left bumper).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RIGHT_BUMPER" value="158" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RIGHT_BUMPER" value="158" enum="InputActionOrigin">
 			(X360) digital right shoulder button (aka right bumper).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_START" value="159" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_START" value="159" enum="InputActionOrigin">
 			(X360) digital start button.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_BACK" value="160" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_BACK" value="160" enum="InputActionOrigin">
 			(X360) digital back button.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_LEFT_TRIGGER_PULL" value="161" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_LEFT_TRIGGER_PULL" value="161" enum="InputActionOrigin">
 			(X360) left analog trigger, pulled by any amount (analog value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_LEFT_TRIGGER_CLICK" value="162" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_LEFT_TRIGGER_CLICK" value="162" enum="InputActionOrigin">
 			(X360) left analog trigger, pulled in all the way (digital value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RIGHT_TRIGGER_PULL" value="163" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RIGHT_TRIGGER_PULL" value="163" enum="InputActionOrigin">
 			(X360) right analog trigger, pulled by any amount (analog value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RIGHT_TRIGGER_CLICK" value="164" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RIGHT_TRIGGER_CLICK" value="164" enum="InputActionOrigin">
 			(X360) right analog trigger, pulled in all the way (digital value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_LEFT_STICK_MOVE" value="165" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_LEFT_STICK_MOVE" value="165" enum="InputActionOrigin">
 			(X360) left joystick, movement on any axis (analog value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_LEFT_STICK_CLICK" value="166" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_LEFT_STICK_CLICK" value="166" enum="InputActionOrigin">
 			(X360) left joystick, clicked in (digital value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_LEFT_STICK_DPAD_NORTH" value="167" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_LEFT_STICK_DPAD_NORTH" value="167" enum="InputActionOrigin">
 			(X360) left joystick, digital movement (upper quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_LEFT_STICK_DPAD_SOUTH" value="168" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_LEFT_STICK_DPAD_SOUTH" value="168" enum="InputActionOrigin">
 			(X360) left joystick, digital movement (lower quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_LEFT_STICK_DPAD_WEST" value="169" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_LEFT_STICK_DPAD_WEST" value="169" enum="InputActionOrigin">
 			(X360) left joystick, digital movement (left quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_LEFT_STICK_DPAD_EAST" value="170" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_LEFT_STICK_DPAD_EAST" value="170" enum="InputActionOrigin">
 			(X360) left joystick, digital movement (right quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RIGHT_STICK_MOVE" value="171" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RIGHT_STICK_MOVE" value="171" enum="InputActionOrigin">
 			(X360) right joystick, movement on any axis (analog value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RIGHT_STICK_CLICK" value="172" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RIGHT_STICK_CLICK" value="172" enum="InputActionOrigin">
 			(X360) right joystick, clicked in (digital value).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RIGHT_STICK_DPAD_NORTH" value="173" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RIGHT_STICK_DPAD_NORTH" value="173" enum="InputActionOrigin">
 			(X360) right joystick, digital movement (upper quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RIGHT_STICK_DPAD_SOUTH" value="174" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RIGHT_STICK_DPAD_SOUTH" value="174" enum="InputActionOrigin">
 			(X360) right joystick, digital movement (lower quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RIGHT_STICK_DPAD_WEST" value="175" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RIGHT_STICK_DPAD_WEST" value="175" enum="InputActionOrigin">
 			(X360) right joystick, digital movement (left quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RIGHT_STICK_DPAD_EAST" value="176" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RIGHT_STICK_DPAD_EAST" value="176" enum="InputActionOrigin">
 			(X360) right joystick, digital movement (right quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_DPAD_NORTH" value="177" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_DPAD_NORTH" value="177" enum="InputActionOrigin">
 			(X360) digital pad, pressed (upper quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_DPAD_SOUTH" value="178" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_DPAD_SOUTH" value="178" enum="InputActionOrigin">
 			(X360) digital pad, pressed (lower quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_DPAD_WEST" value="179" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_DPAD_WEST" value="179" enum="InputActionOrigin">
 			(X360) digital pad, pressed (left quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_DPAD_EAST" value="180" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_DPAD_EAST" value="180" enum="InputActionOrigin">
 			(X360) digital pad, pressed (right quadrant).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED0" value="181" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_DPAD_MOVE" value="181" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED1" value="182" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED1" value="182" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED2" value="183" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED2" value="183" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED3" value="184" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED3" value="184" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED4" value="185" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED4" value="185" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED5" value="186" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED5" value="186" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED6" value="187" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED6" value="187" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED7" value="188" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED7" value="188" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED8" value="189" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED8" value="189" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED9" value="190" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED9" value="190" enum="InputActionOrigin">
-			Reserved for future use.
-		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_XBOX_360_RESERVED10" value="191" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_XBOX360_RESERVED10" value="191" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_A" value="192" enum="InputActionOrigin">
@@ -10131,8 +10123,7 @@
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_PRO_GYRO_ROLL" value="224" enum="InputActionOrigin">
 			(Nintendo Switch Pro) gyroscope, analog movement on the Roll axis (tilt head left towards shoulder, tilt head right towards other shoulder).
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED0" value="225" enum="InputActionOrigin">
-			Reserved for future use.
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH_DPAD_MOVE" value="225" enum="InputActionOrigin">
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED1" value="226" enum="InputActionOrigin">
 			Reserved for future use.
@@ -10157,24 +10148,22 @@
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED8" value="233" enum="InputActionOrigin">
 		</constant>
-			Reserved for future use.
-		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED9" value="234" enum="InputActionOrigin">
-			Reserved for> future use.
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED10" value="235" enum="InputActionOrigin">
 			Reserved for future use.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RIGHTGYRO_MOVE" value="236" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RIGHT_GYRO_MOVE" value="236" enum="InputActionOrigin">
 			Right JoyCon Gyro generally should correspond to Pro's single gyro.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RIGHTGYRO_PITCH" value="237" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RIGHT_GYRO_PITCH" value="237" enum="InputActionOrigin">
 			Right JoyCon Gyro generally should correspond to Pro's single gyro.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RIGHTGYRO_YAW" value="238" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RIGHT_GYRO_YAW" value="238" enum="InputActionOrigin">
 			Right JoyCon Gyro generally should correspond to Pro's single gyro.
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RIGHTGYRO_ROLL" value="239" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RIGHT_GYRO_ROLL" value="239" enum="InputActionOrigin">
 			Right JoyCon Gyro generally should correspond to Pro's single gyro.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_LEFT_GYRO_MOVE" value="240" enum="InputActionOrigin">
@@ -10231,7 +10220,7 @@
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFT_BUMPER" value="262" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHTBUMPER" value="263" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHT_BUMPER" value="263" enum="InputActionOrigin">
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_OPTION" value="264" enum="InputActionOrigin">
 			Start.
@@ -10291,29 +10280,29 @@
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHT_TRIGGER_CLICK" value="291" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFTSTICK_MOVE" value="292" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFT_STICK_MOVE" value="292" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFTSTICK_CLICK" value="293" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFT_STICK_CLICK" value="293" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFTSTICK_DPAD_NORTH" value="294" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFT_STICK_DPAD_NORTH" value="294" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFTSTICK_DPAD_SOUTH" value="295" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFT_STICK_DPAD_SOUTH" value="295" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFTSTICK_DPAD_WEST" value="296" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFT_STICK_DPAD_WEST" value="296" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFTSTICK_DPAD_EAST" value="297" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_LEFT_STICK_DPAD_EAST" value="297" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHTSTICK_MOVE" value="298" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHT_STICK_MOVE" value="298" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHTSTICK_CLICK" value="299" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHT_STICK_CLICK" value="299" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHTSTICK_DPAD_NORTH" value="300" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHT_STICK_DPAD_NORTH" value="300" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHTSTICK_DPAD_SOUTH" value="301" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHT_STICK_DPAD_SOUTH" value="301" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHTSTICK_DPAD_WEST" value="302" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHT_STICK_DPAD_WEST" value="302" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHTSTICK_DPAD_EAST" value="303" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHT_STICK_DPAD_EAST" value="303" enum="InputActionOrigin">
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_DPAD_NORTH" value="304" enum="InputActionOrigin">
 		</constant>
@@ -11123,7 +11112,7 @@
 			For the Internet query type; returned in response callback if no servers of this type match.
 		</constant>
 		<constant name="NETWORKING_AVAILABILITY_CANNOT_TRY" value="-102" enum="NetworkingAvailability">
-			 A dependent resource is missing, so this service is unavailable.  (E.g. we cannot talk to routers because Internet is down or we don't have the network config.)
+			A dependent resource is missing, so this service is unavailable.  (E.g. we cannot talk to routers because Internet is down or we don't have the network config.)
 		</constant>
 		<constant name="NETWORKING_AVAILABILITY_FAILED" value="-101" enum="NetworkingAvailability">
 			We have tried for enough time that we would expect to have been successful by now.  We have never been successful.
@@ -11190,6 +11179,24 @@
 		</constant>
 		<constant name="NETWORKING_CONFIG_FAKE_PACKET_LAG_RECV" value="5" enum="NetworkingConfigValue">
 			Delay all outbound/inbound packets by N ms.
+		</constant>
+		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_SEND_AVG" value="53" enum="NetworkingConfigValue">
+			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
+		</constant>
+		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_SEND_MAX" value="54" enum="NetworkingConfigValue">
+			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
+		</constant>
+		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_SEND_PCT" value="55" enum="NetworkingConfigValue">
+			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
+		</constant>
+		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_RECV_AVG" value="56" enum="NetworkingConfigValue">
+			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
+		</constant>
+		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_RECV_MAX" value="57" enum="NetworkingConfigValue">
+			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
+		</constant>
+		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_RECV_PCT" value="58" enum="NetworkingConfigValue">
+			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
 		</constant>
 		<constant name="NETWORKING_CONFIG_FAKE_PACKET_REORDER_SEND" value="6" enum="NetworkingConfigValue">
 			Fake packet reordering is applied after fake lag and jitter. Read more below.
@@ -11286,24 +11293,6 @@
 		</constant>
 		<constant name="NETWORKING_CONFIG_ENABLE_DIAGNOSTICS_UI" value="46" enum="NetworkingConfigValue">
 			True to enable diagnostics reporting through generic platform UI.  Only available on Steam.
-		</constant>
-		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_SEND_AVG" value="53" enum="NetworkingConfigValue">
-			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
-		</constant>
-		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_SEND_MAX" value="54" enum="NetworkingConfigValue">
-			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
-		</constant>
-		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_SEND_PCT" value="55" enum="NetworkingConfigValue">
-			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
-		</constant>
-		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_RECV_AVG" value="56" enum="NetworkingConfigValue">
-			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
-		</constant>
-		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_RECV_MAX" value="57" enum="NetworkingConfigValue">
-			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
-		</constant>
-		<constant name="NETWORKING_CONFIG_FAKE_PACKET_JITTER_RECV_PCT" value="58" enum="NetworkingConfigValue">
-			Fake jitter is simulated after fake lag but before reordering. For each packet, a jitter value is determined; which may be zero.  This amount is added as extra delay to the packet.  When a subsequent packet is queued, it receives its own random jitter amount from the current time.  if this would result in the packets being delivered out of order, the later packet queue time is adjusted to happen after the first packet.  Thus simulating jitter by itself will not reorder packets, but it can "clump" them.
 		</constant>
 		<constant name="NETWORKING_CONFIG_SEND_TIME_SINCE_PREVIOUS_PACKET" value="59" enum="NetworkingConfigValue">
 			Send of time-since-previous-packet values in each UDP packet.  This add a small amount of packet overhead but allows for detailed jitter measurements to be made by the receiver. 0 disables the sending, 1 enables sending, and -1 is the default.  Use the default for the connection type.  For plain UDP connections this is disabled and for relayed connections it is enabled.  Note that relays always send the value.
@@ -12881,7 +12870,7 @@
 			List of files the user has favorited.
 		</constant>
 		<constant name="USER_UGC_LIST_SUBSCRIBED" value="6" enum="UserUGCList">
-			List of files the user has subscribed to. (Restricted to the current user only). 
+			List of files the user has subscribed to. (Restricted to the current user only).
 		</constant>
 		<constant name="USER_UGC_LIST_USED_OR_PLAYED" value="7" enum="UserUGCList">
 			List of files the user has spent time in game with.
@@ -12996,7 +12985,7 @@
 			Greenlight game entry.
 		</constant>
 		<constant name="WORKSHOP_FILE_TYPE_SOFTWARE" value="7" enum="WorkshopFileType">
-			 Greenlight software entry.
+			Greenlight software entry.
 		</constant>
 		<constant name="WORKSHOP_FILE_TYPE_CONCEPT" value="8" enum="WorkshopFileType">
 			Greenlight concept.

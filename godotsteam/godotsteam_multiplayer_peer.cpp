@@ -339,17 +339,21 @@ void SteamMultiplayerPeer::lobby_chat_update(LobbyChatUpdate_t *p_chat_update) {
 		LocalVector<HSteamNetConnection> connections_to_remove;
 		for (KeyValue<HSteamNetConnection, Ref<SteamPacketPeer>> &E :
 				steam_connections) {
-			if (E.value.is_null()) {
+			// Guard on the underlying object pointer, not just the Ref wrapper.
+			// A dangling/half-torn-down entry can pass is_null() yet dereference
+			// to a null object, which crashed get_steam_id() (KERN_INVALID_ADDRESS).
+			SteamPacketPeer *peer = E.value.ptr();
+			if (peer == nullptr) {
 				connections_to_remove.push_back(E.key);
-			} else {
-				if (E.value->get_steam_id() == p_chat_update->m_ulSteamIDUserChanged) {
-					if (E.value->get_peer_id() > 0) {
-						peer_ids_to_disconnect.push_back(E.value->get_peer_id());
-					} else {
-						// We have an open connection but no peer
-						E.value->disconnect_peer(true);
-						connections_to_remove.push_back(E.value->get_connection_handle());
-					}
+				continue;
+			}
+			if (peer->get_steam_id() == p_chat_update->m_ulSteamIDUserChanged) {
+				if (peer->get_peer_id() > 0) {
+					peer_ids_to_disconnect.push_back(peer->get_peer_id());
+				} else {
+					// We have an open connection but no peer
+					peer->disconnect_peer(true);
+					connections_to_remove.push_back(peer->get_connection_handle());
 				}
 			}
 		}
