@@ -39,13 +39,19 @@ class ProjectSettings;
 
 class SteamProjectSettings {
 
+
 public:
 	static void register_settings();
 
 	static int get_app_id();
+	static int get_app_type();
 	static bool get_auto_init();
+	static int get_demo_id();
 	static bool get_embed_callbacks();
+	static int get_id_in_use();
 	static int get_max_channels();
+	static int get_playtest_id();
+	static int get_tool_id();
 };
 
 }
