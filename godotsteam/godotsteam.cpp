@@ -1189,7 +1189,9 @@ String Steam::getPersonaName() {
 // Gets the status of the current user.
 Steam::PersonaState Steam::getPersonaState() {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamFriends() == nullptr, PERSONA_STATE_OFFLINE, "Friends class not found, Steam may not be initialized: getPersonaState");
-	return PersonaState(SteamAPI_ISteamFriends_GetPersonaState(SteamAPI_SteamFriends()));
+	// GetPersonaState always returns true, per Valve; so for this to be useful, we will replace it
+	//	return PersonaState(SteamAPI_ISteamFriends_GetPersonaState(SteamAPI_SteamFriends()));
+	return PersonaState(SteamAPI_ISteamFriends_GetFriendPersonaState(SteamAPI_SteamFriends(), SteamAPI_ISteamUser_GetSteamID(SteamAPI_SteamUser())));
 }
 
 // Get player's avatar.
@@ -2717,9 +2719,11 @@ PackedByteArray Steam::serializeResult(int32 this_inventory_handle) {
 		this_inventory_handle = inventory_handle;
 	}
 
-	uint32_t buffer_size = STEAM_BUFFER_SIZE;
+	uint32_t buffer_size = 0;
 	PackedByteArray buffer;
+	SteamAPI_ISteamInventory_SerializeResult(SteamAPI_SteamInventory(), (SteamInventoryResult_t)this_inventory_handle, nullptr, &buffer_size);
 	buffer.resize(buffer_size);
+
 	if (SteamAPI_ISteamInventory_SerializeResult(SteamAPI_SteamInventory(), (SteamInventoryResult_t)this_inventory_handle, buffer.ptrw(), &buffer_size)) {
 		buffer.resize(buffer_size);
 		result_serialized = buffer;
@@ -3103,11 +3107,22 @@ void Steam::cancelServerQuery(int server_query) {
 static std::vector<MatchMakingKeyValuePair_t> filters_array_to_vector(const Array &filters) {
 	uint32_t filter_size = filters.size();
 	std::vector<MatchMakingKeyValuePair_t> filters_array(filter_size);
-	for (uint32_t i = 0; i < filter_size; i++) {
-		Array pair = filters[i];
-		String key = pair[0];
-		String value = pair[1];
-		filters_array[i] = MatchMakingKeyValuePair_t(key.utf8().get_data(), value.utf8().get_data());
+
+	if (filter_size > 0) {
+		for (uint32_t i = 0; i < filter_size; i++) {
+			Array pair = filters[i];
+			if (pair.size() == 0) {
+				// We will just ignore this blank filter
+			}
+			else if (pair.size() != 2) {
+				WARN_PRINT("Filter array not valid, must contain only a key string and value string");
+			}
+			else {
+				String key = pair[0];
+				String value = pair[1];
+				filters_array[i] = MatchMakingKeyValuePair_t(key.utf8().get_data(), value.utf8().get_data());
+			}
+		}
 	}
 	return filters_array;
 }
@@ -7184,7 +7199,7 @@ void Steam::friend_rich_presence_update(FriendRichPresenceUpdate_t *call_data) {
 void Steam::connected_chat_join(GameConnectedChatJoin_t *call_data) {
 	uint64_t chat_id = call_data->m_steamIDClanChat.ConvertToUint64();
 	uint64_t steam_id = call_data->m_steamIDUser.ConvertToUint64();
-	emit_signal("chat_joined", chat_id, steam_id);
+	emit_signal("connected_chat_joined", chat_id, steam_id);
 }
 
 // Called when a user has left a Steam group chat that the we are in.
@@ -7193,7 +7208,7 @@ void Steam::connected_chat_leave(GameConnectedChatLeave_t *call_data) {
 	uint64_t steam_id = call_data->m_steamIDUser.ConvertToUint64();
 	bool kicked = call_data->m_bKicked;
 	bool dropped = call_data->m_bDropped;
-	emit_signal("chat_left", chat_id, steam_id, kicked, dropped);
+	emit_signal("connected_chat_left", chat_id, steam_id, kicked, dropped);
 }
 
 // Called when a chat message has been received in a Steam group chat that we are in.
@@ -7204,7 +7219,7 @@ void Steam::connected_clan_chat_message(GameConnectedClanChatMsg_t *call_data) {
 	EChatEntryType type = k_EChatEntryTypeInvalid;
 	CSteamID user_id;
 	SteamAPI_ISteamFriends_GetClanChatMessage(SteamAPI_SteamFriends(), clan_chat_id, message_index, message_text, 2048, &type, &user_id);
-	emit_signal("clan_chat_message", clan_chat_id, message_index, String(message_text), type, uint64_t(user_id.ConvertToUint64()));
+	emit_signal("connected_clan_chat_message", clan_chat_id, message_index, String(message_text), type, uint64_t(user_id.ConvertToUint64()));
 }
 
 // Called when chat message has been received from a friend
@@ -9723,14 +9738,14 @@ void Steam::_bind_methods() {
 
 	// FRIENDS
 	ADD_SIGNAL(MethodInfo("avatar_image_loaded", PropertyInfo(Variant::INT, "avatar_id"), PropertyInfo(Variant::INT, "avatar_index"), PropertyInfo(Variant::INT, "width"), PropertyInfo(Variant::INT, "height")));
-	ADD_SIGNAL(MethodInfo("avatar_loaded", PropertyInfo(Variant::INT, "avatar_id"), PropertyInfo(Variant::INT, "size"), PropertyInfo(Variant::ARRAY, "data")));
+	ADD_SIGNAL(MethodInfo("avatar_loaded", PropertyInfo(Variant::INT, "avatar_id"), PropertyInfo(Variant::INT, "size"), PropertyInfo(Variant::PACKED_BYTE_ARRAY, "data")));
 	ADD_SIGNAL(MethodInfo("change_server_requested", PropertyInfo(Variant::STRING, "server"), PropertyInfo(Variant::STRING, "password")));
 	ADD_SIGNAL(MethodInfo("clan_activity_downloaded", PropertyInfo(Variant::DICTIONARY, "activity")));
 	ADD_SIGNAL(MethodInfo("connected_chat_join", PropertyInfo(Variant::INT, "chat_id"), PropertyInfo(Variant::INT, "steam_id")));
 	ADD_SIGNAL(MethodInfo("connected_chat_leave", PropertyInfo(Variant::INT, "chat_id"), PropertyInfo(Variant::INT, "steam_id"), PropertyInfo(Variant::BOOL, "kicked"), PropertyInfo(Variant::BOOL, "dropped")));
 	ADD_SIGNAL(MethodInfo("connected_clan_chat_message", PropertyInfo(Variant::INT, "clan_chat_id"), PropertyInfo(Variant::INT, "message_index"), PropertyInfo(Variant::STRING, "message_text"), PropertyInfo(Variant::INT, "type"), PropertyInfo(Variant::INT, "chatter")));
 	ADD_SIGNAL(MethodInfo("connected_friend_chat_message", PropertyInfo(Variant::INT, "steam_id"), PropertyInfo(Variant::INT, "message_index"), PropertyInfo(Variant::INT, "message_text"), PropertyInfo(Variant::INT, "type")));
-	ADD_SIGNAL(MethodInfo("enumerate_following_list", PropertyInfo(Variant::STRING, "message"), PropertyInfo(Variant::ARRAY, "following")));
+	ADD_SIGNAL(MethodInfo("enumerate_following_list", PropertyInfo(Variant::STRING, "message"), PropertyInfo(Variant::PACKED_INT64_ARRAY, "following")));
 	ADD_SIGNAL(MethodInfo("equipped_profile_items", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "steam_id"), PropertyInfo(Variant::DICTIONARY, "profile_data")));
 	ADD_SIGNAL(MethodInfo("equipped_profile_items_changed", PropertyInfo(Variant::INT, "steam_id")));
 	ADD_SIGNAL(MethodInfo("friend_rich_presence_update", PropertyInfo(Variant::INT, "steam_id"), PropertyInfo(Variant::INT, "app_id")));
@@ -9839,7 +9854,7 @@ void Steam::_bind_methods() {
 	// NETWORKING SOCKETS
 	ADD_SIGNAL(MethodInfo("network_connection_status_changed", PropertyInfo(Variant::INT, "connect_handle"), PropertyInfo(Variant::DICTIONARY, "connection"), PropertyInfo(Variant::INT, "old_state")));
 	ADD_SIGNAL(MethodInfo("network_authentication_status", PropertyInfo(Variant::INT, "available"), PropertyInfo(Variant::STRING, "debug_message")));
-	ADD_SIGNAL(MethodInfo("fake_ip_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "remote_fake_steam_id"), PropertyInfo(Variant::STRING, "fake_ip"), PropertyInfo(Variant::ARRAY, "port_list")));
+	ADD_SIGNAL(MethodInfo("fake_ip_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "remote_fake_steam_id"), PropertyInfo(Variant::STRING, "fake_ip"), PropertyInfo(Variant::PACKED_INT32_ARRAY, "port_list")));
 
 	// NETWORKING UTILS
 	ADD_SIGNAL(MethodInfo("relay_network_status", PropertyInfo(Variant::INT, "available"), PropertyInfo(Variant::INT, "ping_measurement"), PropertyInfo(Variant::INT, "available_config"), PropertyInfo(Variant::INT, "available_relay"), PropertyInfo(Variant::STRING, "debug_message")));
@@ -9883,7 +9898,7 @@ void Steam::_bind_methods() {
 	// UGC
 	ADD_SIGNAL(MethodInfo("add_app_dependency_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "app_id")));
 	ADD_SIGNAL(MethodInfo("add_ugc_dependency_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "child_id")));
-	ADD_SIGNAL(MethodInfo("get_app_dependencies_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "app_dependencies"), PropertyInfo(Variant::INT, "total_app_dependencies"), PropertyInfo(Variant::ARRAY, "app_ids")));
+	ADD_SIGNAL(MethodInfo("get_app_dependencies_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "app_dependencies"), PropertyInfo(Variant::INT, "total_app_dependencies"), PropertyInfo(Variant::PACKED_INT32_ARRAY, "app_ids")));
 	ADD_SIGNAL(MethodInfo("get_item_vote_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::BOOL, "vote_up"), PropertyInfo(Variant::BOOL, "vote_down"), PropertyInfo(Variant::BOOL, "vote_skipped")));
 	ADD_SIGNAL(MethodInfo("item_created", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::BOOL, "accept_tos")));
 	ADD_SIGNAL(MethodInfo("item_deleted", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id")));
@@ -9906,7 +9921,7 @@ void Steam::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("encrypted_app_ticket_response", PropertyInfo(Variant::INT, "result")));
 	ADD_SIGNAL(MethodInfo("game_web_callback", PropertyInfo(Variant::STRING, "url")));
 	ADD_SIGNAL(MethodInfo("get_auth_session_ticket_response", PropertyInfo(Variant::INT, "auth_ticket"), PropertyInfo(Variant::INT, "result")));
-	ADD_SIGNAL(MethodInfo("get_ticket_for_web_api", PropertyInfo(Variant::INT, "auth_ticket"), PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "ticket_size"), PropertyInfo(Variant::ARRAY, "ticket_buffer")));
+	ADD_SIGNAL(MethodInfo("get_ticket_for_web_api", PropertyInfo(Variant::INT, "auth_ticket"), PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "ticket_size"), PropertyInfo(Variant::PACKED_BYTE_ARRAY, "ticket_buffer")));
 	ADD_SIGNAL(MethodInfo("ipc_failure", PropertyInfo(Variant::INT, "type")));
 	ADD_SIGNAL(MethodInfo("licenses_updated"));
 	ADD_SIGNAL(MethodInfo("market_eligibility_response", PropertyInfo(Variant::BOOL, "is_allowed"), PropertyInfo(Variant::INT, "disallow_reason"), PropertyInfo(Variant::INT, "allowed_at_time"), PropertyInfo(Variant::INT, "steam_guard_required_days"), PropertyInfo(Variant::INT, "new_device_cooldown")));

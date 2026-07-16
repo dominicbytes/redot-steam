@@ -104,9 +104,12 @@ func _check_steam_api(dll_file: String, dll_location: String) -> void:
 	if FileAccess.file_exists(godot_sdk_path):
 		if _md5_hashes_match(godot_sdk_path, godotsteam_sdk_path):
 			return
-		print("Steam API different between Godot and GodotSteam, copying over GodotSteam version")
+		print("Steam API different between Godot and GodotSteam, backing up Godot version")
+		if not DirAccess.rename_absolute(godot_sdk_path, "%s.bak" % godot_sdk_path) ==  OK:
+			printerr("Failed to backup Steam API from Godot, it may be overwritten")
+		print("Copying over GodotSteam version")
 		if not DirAccess.copy_absolute(godotsteam_sdk_path, godot_sdk_path) == OK:
-			printerr("Failed to overwrite Steam API for Godot, you may need to manually update it")
+			printerr("Failed to copy Steam API from GodotSteam, you may need to manually update it")
 			return
 		if not _md5_hashes_match(godot_sdk_path, godotsteam_sdk_path):
 			printerr("Steam API files still mismatch, you may need to manually update it")

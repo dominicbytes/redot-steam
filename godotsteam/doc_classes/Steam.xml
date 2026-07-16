@@ -4969,8 +4969,15 @@
 			<param index="0" name="app_id" type="int" />
 			<param index="1" name="filters" type="Array" />
 			<description>
-				Request a new list of game servers from the 'favorites' server list.
-				See MatchMakingKeyValuePair_t for more information.
+				Request a new list of game servers from the 'favorites' server list. This request object must be released by calling [method Steam.releaseRequest] when you are done using it.
+				The filters array should be a list of arrays each containing a string key / value pair. For example:
+				[codeblock]
+				var server_filters: Array[Array] = [
+				    ["map","level_1"],
+				    ["gamedataand", "specific_value"],
+				    ["gametagsand", "specific_tag"]
+				]
+				[/codeblock]
 			</description>
 		</method>
 		<method name="requestFriendRichPresence">
@@ -4986,8 +4993,15 @@
 			<param index="0" name="app_id" type="int" />
 			<param index="1" name="filters" type="Array" />
 			<description>
-				Request a new list of game servers from the 'friends' server list.
-				See MatchMakingKeyValuePair_t for more information.
+				Request a new list of game servers from the 'friends' server list. This request object must be released by calling [method Steam.releaseRequest] when you are done using it.
+				The filters array should be a list of arrays each containing a string key / value pair. For example:
+				[codeblock]
+				var server_filters: Array[Array] = [
+				    ["map","level_1"],
+				    ["gamedataand", "specific_value"],
+				    ["gametagsand", "specific_tag"]
+				]
+				[/codeblock]
 			</description>
 		</method>
 		<method name="requestGlobalAchievementPercentages">
@@ -5011,8 +5025,15 @@
 			<param index="0" name="app_id" type="int" />
 			<param index="1" name="filters" type="Array" />
 			<description>
-				Request a new list of game servers from the 'history' server list.
-				See MatchMakingKeyValuePair_t for more information.
+				Request a new list of game servers from the 'history' server list. This request object must be released by calling [method Steam.releaseRequest] when you are done using it.
+				The filters array should be a list of arrays each containing a string key / value pair. For example:
+				[codeblock]
+				var server_filters: Array[Array] = [
+				    ["map","level_1"],
+				    ["gamedataand", "specific_value"],
+				    ["gametagsand", "specific_tag"]
+				]
+				[/codeblock]
 			</description>
 		</method>
 		<method name="requestInternetServerList">
@@ -5020,16 +5041,30 @@
 			<param index="0" name="app_id" type="int" />
 			<param index="1" name="filters" type="Array" />
 			<description>
-				Request a new list of game servers from the 'internet' server list.
-				See MatchMakingKeyValuePair_t for more information.
+				Request a new list of game servers from the 'internet' server list. This request object must be released by calling [method Steam.releaseRequest] when you are done using it.
+				The filters array should be a list of arrays each containing a string key / value pair. For example:
+				[codeblock]
+				var server_filters: Array[Array] = [
+				    ["map","level_1"],
+				    ["gamedataand", "specific_value"],
+				    ["gametagsand", "specific_tag"]
+				]
+				[/codeblock]
 			</description>
 		</method>
 		<method name="requestLANServerList">
 			<return type="int" />
 			<param index="0" name="app_id" type="int" />
 			<description>
-				Request a new list of game servers from the 'LAN' server list.
-				See MatchMakingKeyValuePair_t for more information.
+				Request a new list of game servers from the 'LAN' server list. This request object must be released by calling [method Steam.releaseRequest] when you are done using it.
+				The filters array should be a list of arrays each containing a string key / value pair. For example:
+				[codeblock]
+				var server_filters: Array[Array] = [
+				    ["map","level_1"],
+				    ["gamedataand", "specific_value"],
+				    ["gametagsand", "specific_tag"]
+				]
+				[/codeblock]
 			</description>
 		</method>
 		<method name="requestLobbyData">
@@ -5065,8 +5100,15 @@
 			<param index="0" name="app_id" type="int" />
 			<param index="1" name="filters" type="Array" />
 			<description>
-				Request a new list of game servers from the 'spectator' server list.
-				See MatchMakingKeyValuePair_t for more information.
+				Request a new list of game servers from the 'spectator' server list. This request object must be released by calling [method Steam.releaseRequest] when you are done using it.
+				The filters array should be a list of arrays each containing a string key / value pair. For example:
+				[codeblock]
+				var server_filters: Array[Array] = [
+				    ["map","level_1"],
+				    ["gamedataand", "specific_value"],
+				    ["gametagsand", "specific_tag"]
+				]
+				[/codeblock]
 			</description>
 		</method>
 		<method name="requestStoreAuthURL">

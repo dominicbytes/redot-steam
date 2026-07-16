@@ -4,12 +4,12 @@ An ecosystem of tools for [Godot Engine](https://godotengine.org) and [Valve's S
 
 Additional Flavors
 ---
-Standard Module | Standard Plug-ins | Server Module | Server Plug-ins | Examples
---- | --- | --- | --- | ---
-[Godot 2.x](https://codeberg.org/godotsteam/godotsteam/src/branch/godot2) | [GDNative](https://codeberg.org/godotsteam/godotsteam/src/branch/gdnative) | [Server 3.x](https://codeberg.org/godotsteam/godotsteam-server/src/branch/godot3) | [GDNative](https://codeberg.org/godotsteam/godotsteam-server/src/branch/gdnative) | [Skillet](https://codeberg.org/godotsteam/skillet)
-[Godot 3.x](https://codeberg.org/godotsteam/godotsteam/src/branch/godot3) | [GDExtension](https://codeberg.org/godotsteam/godotsteam/src/branch/gdextension) | [Server 4.x](https://codeberg.org/godotsteam/godotsteam-server/src/branch/godot4) | [GDExtension](https://codeberg.org/godotsteam/godotsteam-server/src/branch/gdextension) | [Skillet UGC Editor](https://codeberg.org/godotsteam/skillet/src/branch/ugc_editor)
-[Godot 4.x](https://codeberg.org/godotsteam/godotsteam/src/branch/godot4) | --- | --- | --- | ---
-[MultiplayerPeer](https://codeberg.org/godotsteam/multiplayerpeer)| --- | --- | --- | ---
+Standard Module | Standard Plug-ins | Server Module | Server Plug-ins | Tools | Examples
+--- | --- | --- | --- | --- | ---
+[Godot 2.x](https://codeberg.org/godotsteam/godotsteam/src/branch/godot2) | [GDNative](https://codeberg.org/godotsteam/godotsteam/src/branch/gdnative) | [Server 3.x](https://codeberg.org/godotsteam/godotsteam-server/src/branch/godot3) | [GDNative](https://codeberg.org/godotsteam/godotsteam-server/src/branch/gdnative) | [GodotSteamKit](https://godotsteam.com/projects/godotsteamkit) | [Skillet](https://codeberg.org/godotsteam/skillet)
+[Godot 3.x](https://codeberg.org/godotsteam/godotsteam/src/branch/godot3) | [GDExtension](https://codeberg.org/godotsteam/godotsteam/src/branch/gdextension) | [Server 4.x](https://codeberg.org/godotsteam/godotsteam-server/src/branch/godot4) | [GDExtension](https://codeberg.org/godotsteam/godotsteam-server/src/branch/gdextension) | --- | [Skillet UGC Editor](https://codeberg.org/godotsteam/skillet/src/branch/ugc_editor)
+[Godot 4.x](https://codeberg.org/godotsteam/godotsteam/src/branch/godot4) | --- | --- | --- | --- | ---
+[MultiplayerPeer](https://codeberg.org/godotsteam/multiplayerpeer)| --- | --- | --- | --- | ---
 
 
 Documentation
@@ -28,23 +28,16 @@ Current Build
 ---
 You can [download pre-compiled versions of this repo here](https://codeberg.org/godotsteam/godotsteam/releases).
 
-**Version 4.20 Changes**
+**Version 4.20.1 Changes**
 
-- Added: app type toggle in Project Settings
-- Added: various app ID fields for game, demo, playtest, and tool to ProjectSettings
-- Added: update process to convert old project settings to new format
-- Added: check for mismatched Steam API file on Windows and Steam
-- Added: new tutorial links to in-editor docs
-- Added: binds for `get_connection_handle()` and `get_state()` for SteamPacketPeer, thanks to ***jdbool***
-- Changed: initialization process can use correct ID based on app type setting
-- Changed: `initFilterText()` no longer takes argument as it is meant for future use
-- Changed: `lobby_data_update` callback now returns bool for success parameter
-- Changed: PERSONA_CHANGE_FACEBOOK_INFO updated to PERSONA_CHANGE_BROADCAST
-- Fixed: `filterText()` breaking character encoding during filtering process
-- Fixed: missing networking enum binds
-- Fixed: minor in-editor doc regressions
-- Fixed: minor enum regressions
-- Fixed: crash in `lobby_chat_update` when lobby member leaves with MultiplayerPeer, thanks to ***bearlikelion***
+- Changed: GodotSteam should now back-up the Steam version of Godot's steam_api64.dll when updating it (Windows only)
+- Changed: updated in-editor docs with examples for Matchmaking Server's request server list functions
+- Fixed: issue where defaults in ProjectSettings were incorrect
+- Fixed: `getPersonaState()` always sending back online regardless of real status, replaced with hack
+- Fixed: regression for `serializeResult()`
+- Fixed: crash when calling Matchmaking Server's request server list functions without a proper filters array, print error for invalid filter arrays
+- Fixed: signal names for: `connected_chat_joined`, `connect_chat_left`, `connected_clan_chat_message`
+- Fixed: incorrect array types for some signals
 
 [You can read more change-logs here](https://godotsteam.com/changelog/gdextension/).
 
