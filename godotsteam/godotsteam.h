@@ -68,10 +68,11 @@
 namespace godot {
 
 class Steam : public Object,
-	ISteamMatchmakingServerListResponse,
 	ISteamMatchmakingPingResponse,
 	ISteamMatchmakingPlayersResponse,
-	ISteamMatchmakingRulesResponse {
+	ISteamMatchmakingRulesResponse,
+	ISteamMatchmakingServerFriendsResponse,
+	ISteamMatchmakingServerListResponse {
 
 	GDCLASS(Steam, Object);
 
@@ -165,6 +166,8 @@ public:
 	bool markContentCorrupt(bool missing_files_only);
 	bool setActiveBeta(String beta_name);
 	bool setDLCContext(uint32_t app_id);
+	void setGamePerformanceSettings(GamePerformanceSetting setting);
+	void setGameRenderResolution(uint32_t width, uint32_t height);
 	void uninstallDLC(uint32_t dlc_id);
 
 	// Friends
@@ -358,8 +361,8 @@ public:
 	bool showBindingPanel(uint64_t input_handle);
 	void stopAnalogActionMomentum(uint64_t input_handle, uint64_t action);
 	InputActionOrigin translateActionOrigin(InputType destination_input, InputActionOrigin source_origin);
-	void triggerHapticPulse(uint64_t input_handle, ControllerPad target_pad, int duration);
-	void triggerRepeatedHapticPulse(uint64_t input_handle, ControllerPad target_pad, int duration, int offset, int repeat, int flags);
+	void triggerHapticPulse(uint64_t input_handle, SteamControllerPad target_pad, int duration);
+	void triggerRepeatedHapticPulse(uint64_t input_handle, SteamControllerPad target_pad, int duration, int offset, int repeat, int flags);
 	void triggerSimpleHapticEvent(uint64_t input_handle, ControllerHapticLocation haptic_location, uint8_t intensity, const String &gain_db, uint8_t other_intensity, const String &other_gain_db);
 	void triggerVibration(uint64_t input_handle, uint16_t left_speed, uint16_t right_speed);
 	void triggerVibrationExtended(uint64_t input_handle, uint16_t left_speed, uint16_t right_speed, uint16_t left_trigger_speed, uint16_t right_trigger_speed);
@@ -450,6 +453,7 @@ public:
 	uint64_t requestInternetServerList(uint32_t app_id, Array filters);
 	uint64_t requestLANServerList(uint32_t app_id);
 	uint64_t requestSpectatorServerList(uint32_t app_id, Array filters);
+	int serverFriends(const String &ip, uint16_t port);
 	int serverRules(const String &ip, uint16_t port);
 
 	// Music
@@ -519,7 +523,7 @@ public:
 //	Dictionary receivedRelayAuthTicket();	<------ Uses datagram relay structs which were removed from base SDK
 	void resetIdentity(uint64_t remote_steam_id);
 	void runNetworkingCallbacks();
-	PackedInt64Array sendMessages(uint32_t connection_handle, Array messages, int flags);
+	PackedInt64Array sendMessages(uint32_t connection_handle, Array messages, int flags, bool delete_failed_messages);
 	Dictionary sendMessageToConnection(uint32_t connection_handle, const PackedByteArray message, int flags);
 	Dictionary setCertificate(const PackedByteArray &certificate);
 	bool setConnectionPollGroup(uint32_t connection_handle, uint32_t poll_group);
@@ -864,14 +868,16 @@ public:
 	int getSecondsSinceAppActive();
 	int getSecondsSinceComputerActive();
 	int getServerRealTime();
+	SteamHardwareDefaultConfig getSteamHardwareDefaultConfig();
 	String getSteamUILanguage();
 	bool initFilterText();
 	Dictionary isAPICallCompleted();
 	bool isOverlayEnabled();
+	SteamHardwareType isRunningOnSteamHardware();
+	bool isRunningUnderProton();
 	bool isSteamChinaLauncher();
 	bool isSteamInBigPictureMode();
 	bool isSteamRunningInVR();
-	bool isSteamRunningOnSteamDeck();
 	bool isVRHeadsetStreamingEnabled();
 	bool overlayNeedsPresent();
 	void setGameLauncherMode(bool mode);
@@ -924,7 +930,7 @@ private:
 	void start_initialization_verbose(uint32_t app_id = 0, bool embed_callbacks = false);
 
 	// Main
-	String godotsteam_version = "4.20.1";
+	String godotsteam_version = "4.21";
 	Dictionary init_result;
 	bool is_init_success;
 	bool were_callbacks_embedded;
@@ -942,10 +948,11 @@ private:
 
 	// Matchmaking Servers
 	HServerListRequest server_list_request = 0;
-	ISteamMatchmakingServerListResponse *server_list_response = this;
 	ISteamMatchmakingPingResponse *ping_response = this;
 	ISteamMatchmakingPlayersResponse *players_response = this;
 	ISteamMatchmakingRulesResponse *rules_response = this;
+	ISteamMatchmakingServerFriendsResponse *server_friends_response = this;
+	ISteamMatchmakingServerListResponse *server_list_response = this;
 
 	Dictionary gameServerItemToDictionary(gameserveritem_t *server_item);
 
@@ -1035,10 +1042,6 @@ private:
 	STEAM_CALLBACK(Steam, lobby_kicked, LobbyKicked_t, callbackLobbyKicked);
 
 	// Matchmaking Server
-	// ISteamMatchmakingServerListResponse
-	void ServerResponded(HServerListRequest list_request_handle, int server) override;
-	void ServerFailedToRespond(HServerListRequest list_request_handle, int server) override;
-	void RefreshComplete (HServerListRequest list_request_handle, EMatchMakingServerResponse response) override;
 	// ISteamMatchmakingPingResponse
 	void ServerResponded(gameserveritem_t &server) override;
 	void ServerFailedToRespond() override;
@@ -1050,7 +1053,15 @@ private:
 	void RulesResponded(const char *rule, const char *value) override;
 	void RulesFailedToRespond() override;
 	void RulesRefreshComplete() override;
-
+	// ISteamMatchmakingServerListResponse
+	void ServerResponded(HServerListRequest list_request_handle, int server) override;
+	void ServerFailedToRespond(HServerListRequest list_request_handle, int server) override;
+	void RefreshComplete (HServerListRequest list_request_handle, EMatchMakingServerResponse response) override;
+	// ISteamMatchmakingServerFriendsReponse
+	void AddFriendToList(CSteamID steam_id, const char *friend_name, bool currently_connected) override;
+	void FriendsFailedToRespond() override;
+	void FriendsRefreshComplete() override;
+	
 	// Music
 	STEAM_CALLBACK(Steam, music_playback_status_has_changed, PlaybackStatusHasChanged_t, callbackMusicPlaybackStatusHasChanged);
 	STEAM_CALLBACK(Steam, music_volume_has_changed, VolumeHasChanged_t, callbackMusicVolumeHasChanged);
@@ -1283,7 +1294,6 @@ VARIANT_ENUM_CAST(Steam::CommunityProfileItemType);
 VARIANT_ENUM_CAST(Steam::CommunityProfileItemProperty);
 VARIANT_ENUM_CAST(Steam::ControllerHapticLocation);
 VARIANT_ENUM_CAST(Steam::ControllerHapticType);
-VARIANT_ENUM_CAST(Steam::ControllerPad);
 
 VARIANT_ENUM_CAST(Steam::DenyReason);
 VARIANT_ENUM_CAST(Steam::DeviceFormFactor);
@@ -1300,6 +1310,7 @@ VARIANT_ENUM_CAST(Steam::FriendRelationship);
 VARIANT_ENUM_CAST(Steam::GameIDType);
 VARIANT_ENUM_CAST(Steam::GamepadTextInputLineMode);
 VARIANT_ENUM_CAST(Steam::GamepadTextInputMode);
+VARIANT_ENUM_CAST(Steam::GamePerformanceSetting);
 
 VARIANT_BITFIELD_CAST(Steam::HTMLKeyModifiers);
 VARIANT_ENUM_CAST(Steam::HTMLMouseButton);
@@ -1372,6 +1383,9 @@ VARIANT_ENUM_CAST(Steam::SCEPadTriggerEffectMode);
 VARIANT_ENUM_CAST(Steam::SocketConnectionType);
 VARIANT_ENUM_CAST(Steam::SocketState);
 VARIANT_ENUM_CAST(Steam::SteamAPIInitResult);
+VARIANT_ENUM_CAST(Steam::SteamControllerPad);
+VARIANT_ENUM_CAST(Steam::SteamHardwareType);
+VARIANT_ENUM_CAST(Steam::SteamHardwareDefaultConfig);
 
 VARIANT_ENUM_CAST(Steam::TextFilteringContext);
 VARIANT_ENUM_CAST(Steam::TimelineGameMode);

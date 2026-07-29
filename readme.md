@@ -28,16 +28,18 @@ Current Build
 ---
 You can [download pre-compiled versions of this repo here](https://codeberg.org/godotsteam/godotsteam/releases).
 
-**Version 4.20.1 Changes**
+**Version 4.21 Changes**
 
-- Changed: GodotSteam should now back-up the Steam version of Godot's steam_api64.dll when updating it (Windows only)
-- Changed: updated in-editor docs with examples for Matchmaking Server's request server list functions
-- Fixed: issue where defaults in ProjectSettings were incorrect
-- Fixed: `getPersonaState()` always sending back online regardless of real status, replaced with hack
-- Fixed: regression for `serializeResult()`
-- Fixed: crash when calling Matchmaking Server's request server list functions without a proper filters array, print error for invalid filter arrays
-- Fixed: signal names for: `connected_chat_joined`, `connect_chat_left`, `connected_clan_chat_message`
-- Fixed: incorrect array types for some signals
+- Added: new enums for Apps, Inputs, UGC, Utils
+- Added: new functions for Apps, Matchmaking Servers, Utils
+- Added: new callbacks for Matchmaking Servers
+- Changed: `sendMessages()` now has `delete_failed_messages` parameter
+- Changed: updated for Steamworks SDK 1.65
+- Changed: ControllerPad enum changed to SteamControllerPad
+- Changed: updated in-editor docs
+- Changed: k_cchDeveloperMetadataMax now set to 10000 instead of 5000
+- Removed: `isSteamRunningOnSteamDeck()` as new functionality was introduced in SDK 1.65
+- Removed: GameIDType enum GAME_TYPE_P2P
 
 [You can read more change-logs here](https://godotsteam.com/changelog/gdextension/).
 
@@ -48,8 +50,9 @@ While rare, sometimes Steamworks SDK updates will break compatilibity with older
 
 Steamworks SDK Version | GodotSteam Version
 ---|---
-1.63 or newer | 4.17
-1.62 | 4.14 or 4.16.2
+1.65 | 4.21 or newer
+1.63 to 1.64 | 4.17 to 4.20.1
+1.62 | 4.14 to 4.16.2
 1.61 | 4.12 to 4.13
 1.60 | 4.6 to 4.11
 1.59 | 4.6 to 4.8
@@ -68,6 +71,7 @@ GodotSteam Version | Broken Compatibility
 4.17 | Windows projects using Steam SDK 1.63 are meant to work with Proton 11 or Experimental on Linux / Steam Deck.
 4.19 | Lots of changes to Voice functions, refer to [4.19 changelog for details](https://godotsteam.com/changelog/godot4/#version-419)
 4.20 | Godot 4.7 changed callable_method_pointer.h to callable_mp.h which will break backwards compatibilty
+4.21 | ControllerPad enum changed to SteamControllerPad enum, SendMessages added new parameter
 
 
 Known Issues

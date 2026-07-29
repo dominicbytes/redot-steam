@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Steam" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+<class name="Steam" inherits="Object" api_type="core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
 	<brief_description>
 		An ecosystem of tools for Godot Engine and Valve's Steam.
 	</brief_description>
@@ -3540,6 +3540,22 @@
 				To receive stats for other users use [method Steam.getUserStat].
 			</description>
 		</method>
+		<method name="getSteamHardwareDefaultConfig">
+			<return type="int" enum="Steam.SteamHardwareDefaultConfig" />
+			<description>
+				Use this method to help choose default game settings (video and other) that you have tuned for specific Steam hardware. It also enables changing your default game settings on future Steam hardware without needing to recompile your game.
+				This method returns an [enum Steam.SteamHardwareDefaultConfig] enum, which has two categories of values:
+				- Machine specific values: Map each of these values to a setting configuration tuned for that device.
+				- General values (low, medium, high, max): Map these values to one of your game's user selectable setting presets. If your game has less han 4 presets, it is expected that multiple values might map to the same preset. For example, a game with 3 presets might map high and max to the game's 'high' user preset. For games that only have 1 preset and run great on any device, low, medium, high and max might all be mapped to that single preset.
+				By default, this method will return a value corresponding to the device type returned by isRunningOnSteamHardware, such as returning STEAM_HARDWARE_TYPE_STEAM_MACHINE when running on a Steam Deck. It may also return a configuration value for 3rd party hardware that has similar performance characteristics to Steam hardware, such as returning STEAM_HARDWARE_DEFAULT_CONFIG_STEAM_DECK when running on a Legion Go S.
+				You can also change what value the Steam Client returns per device through the Steamworks Partner Site. This allows you to customize the default configuration used on future Steam hardware without recompiling your game. For example, if your game runs well on Steam Machine using your 'high' user preset, but was released before that device became available, you could configure this method to return STEAM_HARDWARE_DEFAULT_CONFIG_HIGH when run on those devices. Similarly if your game was released before Steam Frame, you could configure this method to return STEAM_HARDWARE_DEFAULT_CONFIG_STEAM_DECK so that when your game is run in 2D mode, it uses your tuned Steam Deck presets.
+				The following example covers a common approach to choosing default settings when running on Steam hardware:
+				1. Call getSteamHardwareDefaultConfig
+				2. If the returned value is for hardware that you have a known configuration for, use a tuned matching configuration
+				3. If the returned value is low, medium, high or max, use a matching user preset
+				4.If the returned value had no match, fall back to your default setting heuristics
+			</description>
+		</method>
 		<method name="getSteamID">
 			<return type="int" />
 			<description>
@@ -4236,6 +4252,26 @@
 				You can pass a server_list_request handle or, if you do not, it will use the last internally stored one.
 			</description>
 		</method>
+		<method name="isRunningOnSteamHardware">
+			<return type="int" enum="Steam.SteamHardwareType" />
+			<description>
+				Returns if your process is running on a Steam Deck, Machine, Frame or other hardware.
+				This method is intended to be used for usage analytics, support, diagnostic and other non-functional decisions. If your process needs to make a feature or device capability related decision, the Steamworks SDK exposes a set of other methods. Using one of these alternate methods will enable your game to run correctly on future versions of Steam hardware where this method would return a hardware type not present in old SDK versions.
+				Some alternate methods include:
+				- [method Steam.getSteamHardwareDefaultConfig]
+				- [method Steam.isSteamInBigPictureMode]
+				- [method Steam.isRunningUnderProton]
+				- [method Steam.isSteamRunningInVR]
+				- [method Steam.getCurrentBatteryPower]
+				- [method Steam.getConnectedControllers]
+			</description>
+		</method>
+		<method name="isRunningUnderProton">
+			<return type="bool" />
+			<description>
+				Returns true if running under the Proton compatibility layer.
+			</description>
+		</method>
 		<method name="isScreenshotsHooked">
 			<return type="bool" />
 			<description>
@@ -4267,12 +4303,6 @@
 			<return type="bool" />
 			<description>
 				Checks if Steam is running in VR mode.
-			</description>
-		</method>
-		<method name="isSteamRunningOnSteamDeck">
-			<return type="bool" />
-			<description>
-				Checks if Steam is running on a Steam Deck device.
 			</description>
 		</method>
 		<method name="isSubscribed">
@@ -5257,6 +5287,7 @@
 			<param index="0" name="connection_handle" type="int" />
 			<param index="1" name="messages" type="Array" />
 			<param index="2" name="flags" type="int" />
+			<param index="3" name="delete_failed_messages" type="bool" />
 			<description>
 				Send one or more messages without copying the message payload. This is the most efficient way to send messages.
 				The library will take ownership of the message structures. They may be modified or become invalid at any time, so you must not read them after passing them to this function.
@@ -5316,6 +5347,14 @@
 				A result set can be serialized on the local client, transmitted to other players via your game networking, and deserialized by the remote players. This is a secure way of preventing hackers from lying about possessing rare/high-value items. Serializes a result set with signature bytes to an output buffer. The size of a serialized result depends on the number items which are being serialized. When securely transmitting items to other players, it is recommended to use [method Steam.getItemsByID] first to create a minimal result set.
 				[b]Note:[/b] If the argument this_inventory_handle is omitted, GodotSteam will use the internally stored ID.
 				Results have a built-in timestamp which will be considered "expired" after an hour has elapsed. See [method Steam.deserializeResult] for expiration handling.
+			</description>
+		</method>
+		<method name="serverFriends">
+			<return type="int" />
+			<param index="0" name="ip" type="String" />
+			<param index="1" name="port" type="int" />
+			<description>
+				Request the list of friends that have played on this server.
 			</description>
 		</method>
 		<method name="serverRules">
@@ -5498,6 +5537,13 @@
 				In game launchers that don't have controller support you can call this to have Steam Input translate the controller input into mouse/kb to navigate the launcher.
 			</description>
 		</method>
+		<method name="setGamePerformanceSettings">
+			<return type="void" />
+			<param index="0" name="setting" type="int" enum="Steam.GamePerformanceSetting" />
+			<description>
+				Sets the game's performance settings for the user's machine. These seem to be specifically for the Steam Deck and Steam Machine.
+			</description>
+		</method>
 		<method name="setGamePhaseAttribute">
 			<return type="void" />
 			<param index="0" name="attribute_group" type="String" />
@@ -5512,6 +5558,14 @@
 			<param index="0" name="phase_id" type="String" />
 			<description>
 				Games can set a phase ID so they can refer back to a phase in [method Steam.openOverlayToPhase].
+			</description>
+		</method>
+		<method name="setGameRenderResolution">
+			<return type="void" />
+			<param index="0" name="width" type="int" />
+			<param index="1" name="height" type="int" />
+			<description>
+				Sets the game's rendering resolution. May or may not match the system's actual resolution.
 			</description>
 		</method>
 		<method name="setGlobalConfigValueFloat">
@@ -6514,7 +6568,7 @@
 		<method name="triggerHapticPulse">
 			<return type="void" />
 			<param index="0" name="input_handle" type="int" />
-			<param index="1" name="target_pad" type="int" enum="Steam.ControllerPad" />
+			<param index="1" name="target_pad" type="int" enum="Steam.SteamControllerPad" />
 			<param index="2" name="duration" type="int" />
 			<description>
 				Triggers a (low-level) haptic pulse on supported controllers.
@@ -6536,7 +6590,7 @@
 		<method name="triggerRepeatedHapticPulse">
 			<return type="void" />
 			<param index="0" name="input_handle" type="int" />
-			<param index="1" name="target_pad" type="int" enum="Steam.ControllerPad" />
+			<param index="1" name="target_pad" type="int" enum="Steam.SteamControllerPad" />
 			<param index="2" name="duration" type="int" />
 			<param index="3" name="offset" type="int" />
 			<param index="4" name="repeat" type="int" />
@@ -6765,6 +6819,14 @@
 				The result of a call to [method Steam.addAppDependency].
 			</description>
 		</signal>
+		<signal name="add_friend_to_list">
+			<param index="0" name="friend_id" type="int" />
+			<param index="1" name="friend_name" type="String" />
+			<param index="2" name="currently_connected" type="bool" />
+			<description>
+				Got data on a friend who has played on the server -- you'll get this callback once per player on the server which you have requested player data on.
+			</description>
+		</signal>
 		<signal name="add_ugc_dependency_result">
 			<param index="0" name="result" type="int" />
 			<param index="1" name="file_id" type="int" />
@@ -6796,7 +6858,7 @@
 		<signal name="avatar_loaded">
 			<param index="0" name="avatar_id" type="int" />
 			<param index="1" name="size" type="int" />
-			<param index="2" name="data" type="Array" />
+			<param index="2" name="data" type="PackedByteArray" />
 			<description>
 				Called when a large avatar is loaded if you have tried requesting it when it was unavailable.
 				Emits signal in response to function [method Steam.getLargeFriendAvatar], [method Steam.getMediumFriendAvatar], or [method Steam.getSmallFriendAvatar].
@@ -6957,7 +7019,7 @@
 		</signal>
 		<signal name="enumerate_following_list">
 			<param index="0" name="message" type="String" />
-			<param index="1" name="following" type="Array" />
+			<param index="1" name="following" type="PackedInt64Array" />
 			<description>
 				Returns the result of [method Steam.enumerateFollowingList].
 				The returned array contains a list of dictionaries containing the following keys:
@@ -6993,7 +7055,7 @@
 			<param index="0" name="result" type="int" />
 			<param index="1" name="remote_fake_steam_id" type="int" />
 			<param index="2" name="fake_ip" type="String" />
-			<param index="3" name="port_list" type="Array" />
+			<param index="3" name="port_list" type="PackedInt32Array" />
 			<description>
 				A struct used to describe a "fake IP" we have been assigned to use as an identifier. This callback is posted when [method Steam.beginAsyncRequestFakeIP]completes.
 			</description>
@@ -7067,6 +7129,16 @@
 				Called when rich presence data has been updated for a user, this can happen automatically when friends in the same game update their rich presence, or after a call to [method Steam.requestFriendRichPresence].
 			</description>
 		</signal>
+		<signal name="friends_failed_to_respond">
+			<description>
+				The server failed to respond to the request for player details.
+			</description>
+		</signal>
+		<signal name="friends_refresh_complete">
+			<description>
+				The server has finished responding to the player details request (ie. you won't get anymore [signal Steam.add_friend_to_list] callbacks).
+			</description>
+		</signal>
 		<signal name="game_web_callback">
 			<param index="0" name="url" type="String" />
 			<description>
@@ -7086,7 +7158,7 @@
 			<param index="1" name="file_id" type="int" />
 			<param index="2" name="app_dependencies" type="int" />
 			<param index="3" name="total_app_dependencies" type="int" />
-			<param index="4" name="app_ids" type="Array" />
+			<param index="4" name="app_ids" type="PackedInt32Array" />
 			<description>
 				Called when getting the app dependencies for an item.
 			</description>
@@ -7127,7 +7199,7 @@
 			<param index="0" name="auth_ticket" type="int" />
 			<param index="1" name="result" type="int" />
 			<param index="2" name="ticket_size" type="int" />
-			<param index="3" name="ticket_buffer" type="Array" />
+			<param index="3" name="ticket_buffer" type="PackedByteArray" />
 			<description>
 				Result when creating an web API ticket from GetAuthTicketForWebApi.
 			</description>
@@ -8587,7 +8659,7 @@
 		<constant name="UFS_TAG_VALUE_MAX" value="255">
 			The maximum length in bytes of a location metadata string set on a screenshot using [method Steam.setLocation].
 		</constant>
-		<constant name="DEVELOPER_METADATA_MAX" value="5000">
+		<constant name="DEVELOPER_METADATA_MAX" value="10000">
 			The maximum amount of bytes you can set with [method Steam.setItemMetadata].
 		</constant>
 		<constant name="NUM_UGC_RESULTS_PER_PAGE" value="50">
@@ -9003,12 +9075,6 @@
 		<constant name="CONTROLLER_HAPTIC_TYPE_CLICK" value="2" enum="ControllerHapticType">
 			Haptic type is click.
 		</constant>
-		<constant name="STEAM_CONTROLLER_PAD_LEFT" value="0" enum="ControllerPad">
-			The left touchpad region on a Steam Controller Device. Compatible models: Steam Controller, DualShock 4.
-		</constant>
-		<constant name="STEAM_CONTROLLER_PAD_RIGHT" value="1" enum="ControllerPad">
-			The right region on a Steam Controller Device. Compatible models: Steam Controller, DualShock 4.
-		</constant>
 		<constant name="DENY_INVALID" value="0" enum="DenyReason">
 			Unknown.
 		</constant>
@@ -9221,9 +9287,6 @@
 		<constant name="GAME_TYPE_SHORTCUT" value="2" enum="GameIDType">
 			The game ID is a shortcut.
 		</constant>
-		<constant name="GAME_TYPE_P2P" value="3" enum="GameIDType">
-			The game ID is a P2P file.
-		</constant>
 		<constant name="GAMEPAD_TEXT_INPUT_LINE_MODE_SINGLE_LINE" value="0" enum="GamepadTextInputLineMode">
 			Only allows a single line of text.
 		</constant>
@@ -9235,6 +9298,18 @@
 		</constant>
 		<constant name="GAMEPAD_TEXT_INPUT_MODE_PASSWORD" value="1" enum="GamepadTextInputMode">
 			Password text input; obscures what it entered.
+		</constant>
+		<constant name="GAME_PERFORMANCE_SETTING_NOT_SET" value="0" enum="GamePerformanceSetting">
+		</constant>
+		<constant name="GAME_PERFORMANCE_SETTING_LOW" value="1" enum="GamePerformanceSetting">
+		</constant>
+		<constant name="GAME_PERFORMANCE_SETTING_MEDIUM" value="2" enum="GamePerformanceSetting">
+		</constant>
+		<constant name="GAME_PERFORMANCE_SETTING_HIGH" value="3" enum="GamePerformanceSetting">
+		</constant>
+		<constant name="GAME_PERFORMANCE_SETTING_ULTRA" value="4" enum="GamePerformanceSetting">
+		</constant>
+		<constant name="GAME_PERFORMANCE_SETTING_CUSTOM" value="5" enum="GamePerformanceSetting">
 		</constant>
 		<constant name="HTML_KEY_MODIFIER_NONE" value="0" enum="HTMLKeyModifiers" is_bitfield="true">
 			No modifiers are pressed.
@@ -10189,6 +10264,7 @@
 			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED8" value="233" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED9" value="234" enum="InputActionOrigin">
 			Reserved for future use.
@@ -10241,16 +10317,22 @@
 			B.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED15" value="252" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED16" value="253" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED17" value="254" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED18" value="255" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED19" value="256" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH_RESERVED20" value="257" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_X" value="258" enum="InputActionOrigin">
 		</constant>
@@ -10373,36 +10455,52 @@
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RIGHT_FN" value="316" enum="InputActionOrigin">
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED5" value="317" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED6" value="318" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED7" value="319" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED8" value="320" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED9" value="321" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED10" value="322" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED11" value="323" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED12" value="324" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED13" value="325" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED14" value="326" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED15" value="327" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED16" value="328" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED17" value="329" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED18" value="330" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED19" value="331" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_PS5_RESERVED20" value="332" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_A" value="333" enum="InputActionOrigin">
 		</constant>
@@ -10511,44 +10609,64 @@
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_GYRO_ROLL" value="385" enum="InputActionOrigin">
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED1" value="386" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED2" value="387" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED3" value="388" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED4" value="389" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED5" value="390" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED6" value="391" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED7" value="392" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED8" value="393" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED9" value="394" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED10" value="395" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED11" value="396" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED12" value="397" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED13" value="398" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED14" value="399" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED15" value="400" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED16" value="401" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED17" value="402" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED18" value="403" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED19" value="404" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_STEAMDECK_RESERVED20" value="405" enum="InputActionOrigin">
+			Reserved for future use.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_HORIPAD_M1" value="406" enum="InputActionOrigin">
 		</constant>
@@ -10728,7 +10846,435 @@
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_GENERIC_MISC8" value="494" enum="InputActionOrigin">
 		</constant>
-		<constant name="INPUT_ACTION_ORIGIN_COUNT" value="495" enum="InputActionOrigin">
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_PULL" value="506" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_CLICK" value="507" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_MOVE" value="508" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_CLICK" value="509" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_NORTH" value="510" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_SOUTH" value="511" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_WEST" value="512" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_EAST" value="513" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_MOVE" value="514" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_CLICK" value="515" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_NORTH" value="516" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_SOUTH" value="517" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_WEST" value="518" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_EAST" value="519" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_DPAD_MOVE" value="520" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_DPAD_NORTH" value="521" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_DPAD_SOUTH" value="522" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_DPAD_WEST" value="523" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_DPAD_EAST" value="524" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_MOVE" value="525" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_PITCH" value="526" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_YAW" value="527" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_ROLL" value="528" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_GL" value="529" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_GR" value="530" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_C" value="531" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED1" value="532" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED2" value="533" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED3" value="534" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED4" value="535" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED5" value="536" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED6" value="537" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED7" value="538" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED8" value="539" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED9" value="540" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RESERVED10" value="541" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_A" value="542" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_B" value="543" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_X" value="544" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_Y" value="545" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L1" value="546" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R1" value="547" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_MENU" value="548" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_VIEW" value="549" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_TOUCH" value="550" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_SWIPE" value="551" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_CLICK" value="552" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_DPAD_NORTH" value="553" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_DPAD_SOUTH" value="554" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_DPAD_WEST" value="555" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_DPAD_EAST" value="556" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_TOUCH" value="557" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_SWIPE" value="558" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_CLICK" value="559" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_DPAD_NORTH" value="560" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_DPAD_SOUTH" value="561" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_DPAD_WEST" value="562" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_DPAD_EAST" value="563" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L2_SOFTPULL" value="564" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L2" value="565" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R2_SOFTPULL" value="566" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R2" value="567" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_MOVE" value="568" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L3" value="569" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_DPAD_NORTH" value="570" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_DPAD_SOUTH" value="571" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_DPAD_WEST" value="572" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_DPAD_EAST" value="573" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_TOUCH" value="574" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_MOVE" value="575" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R3" value="576" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_DPAD_NORTH" value="577" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_DPAD_SOUTH" value="578" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_DPAD_WEST" value="579" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_DPAD_EAST" value="580" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_TOUCH" value="581" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L4" value="582" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R4" value="583" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L5" value="584" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R5" value="585" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_MOVE" value="586" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_NORTH" value="587" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_SOUTH" value="588" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_WEST" value="589" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_EAST" value="590" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_GYRO_MOVE" value="591" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_GYRO_PITCH" value="592" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_GYRO_YAW" value="593" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_GYRO_ROLL" value="594" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LGRIP" value="595" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RGRIP" value="596" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED1" value="597" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED2" value="598" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED3" value="599" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED4" value="600" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED5" value="601" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED6" value="602" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED7" value="603" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED8" value="604" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED9" value="605" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED10" value="606" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED11" value="607" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED12" value="608" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED13" value="609" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED14" value="610" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED15" value="611" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED16" value="612" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED17" value="613" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED18" value="614" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED19" value="615" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED20" value="616" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_A_CLICK" value="617" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_A_TOUCH" value="618" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_B_CLICK" value="619" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_B_TOUCH" value="620" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_X_CLICK" value="621" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_X_TOUCH" value="622" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_Y_CLICK" value="623" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_Y_TOUCH" value="624" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_TRIGGER_PULL" value="625" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_TRIGGER_CLICK" value="626" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_TRIGGER_TOUCH" value="627" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_TRIGGER_PULL" value="628" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_TRIGGER_CLICK" value="629" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_TRIGGER_TOUCH" value="630" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_MENU_CLICK" value="631" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_MENU_TOUCH" value="632" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_VIEW_CLICK" value="633" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_VIEW_TOUCH" value="634" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_BUMPER_CLICK" value="635" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_BUMPER_TOUCH" value="636" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_BUMPER_CLICK" value="637" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_BUMPER_TOUCH" value="638" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_MOVE" value="639" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_CLICK" value="640" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_DPAD_NORTH" value="641" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_DPAD_SOUTH" value="642" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_DPAD_WEST" value="643" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_DPAD_EAST" value="644" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_TOUCH" value="645" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_MOVE" value="646" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_CLICK" value="647" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_DPAD_NORTH" value="648" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_DPAD_SOUTH" value="649" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_DPAD_WEST" value="650" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_DPAD_EAST" value="651" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_TOUCH" value="652" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_MOVE" value="653" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_NORTH" value="654" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_SOUTH" value="655" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_WEST" value="656" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_EAST" value="657" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_TOUCH" value="658" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GYRO_MOVE" value="659" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GYRO_PITCH" value="660" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GYRO_YAW" value="661" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GYRO_ROLL" value="662" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GYRO_MOVE" value="663" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GYRO_PITCH" value="664" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GYRO_YAW" value="665" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GYRO_ROLL" value="666" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GRIP_PULL" value="667" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GRIP_CLICK" value="668" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GRIP_TOUCH" value="669" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GRIP_PULL" value="670" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GRIP_CLICK" value="671" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GRIP_TOUCH" value="672" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_THUMBREST_TOUCH" value="673" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_THUMBREST_TOUCH" value="674" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED1" value="675" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED2" value="676" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED3" value="677" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED4" value="678" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED5" value="679" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED6" value="680" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED7" value="681" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED8" value="682" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED9" value="683" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED10" value="684" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED11" value="685" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED12" value="686" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED13" value="687" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED14" value="688" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED15" value="689" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED16" value="690" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED17" value="691" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED18" value="692" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED19" value="693" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED20" value="694" enum="InputActionOrigin">
+			Reserved for future use.
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_COUNT" value="695" enum="InputActionOrigin">
 			The number of values in this enum, useful for iterating.
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_MAXIMUM_POSSIBLE_VALUE" value="32767" enum="InputActionOrigin">
@@ -10862,7 +11408,15 @@
 		<constant name="INPUT_TYPE_STEAM_DECK_CONTROLLER" value="14" enum="InputType">
 			Valve's Steam Deck controls.
 		</constant>
-		<constant name="INPUT_TYPE_COUNT" value="15" enum="InputType">
+		<constant name="INPUT_TYPE_STEAM_OS_HANDHELD" value="15" enum="InputType">
+		</constant>
+		<constant name="INPUT_TYPE_SWITCH2_PRO_CONTROLLER" value="16" enum="InputType">
+		</constant>
+		<constant name="INPUT_TYPE_STEAM_CONTROLLER2" value="17" enum="InputType">
+		</constant>
+		<constant name="INPUT_TYPE_STEAM_FRAME_CONTROLLER_PAIR" value="18" enum="InputType">
+		</constant>
+		<constant name="INPUT_TYPE_COUNT" value="19" enum="InputType">
 			Current number of values returned.
 		</constant>
 		<constant name="INPUT_TYPE_MAXIMUM_POSSIBLE_VALUE" value="255" enum="InputType">
@@ -12700,6 +13254,55 @@
 		</constant>
 		<constant name="STEAM_API_INIT_RESULT_VERSION_MISMATCH" value="3" enum="SteamAPIInitResult">
 		</constant>
+		<constant name="STEAM_CONTROLLER_PAD_LEFT" value="0" enum="SteamControllerPad">
+			The left touchpad region on a Steam Controller device. Compatible models: Steam Controller, Steam Controller 2, DualShock 4.
+		</constant>
+		<constant name="STEAM_CONTROLLER_PAD_RIGHT" value="1" enum="SteamControllerPad">
+			The right touchpad region on a Steam Controller device. Compatible models: Steam Controller, Steam Controller 2, DualShock 4.
+		</constant>
+		<constant name="STEAM_CONTROLLER_PAD_BOTH" value="2" enum="SteamControllerPad">
+			Both touchpad regions on a Steam Controller device. Compatible models: Steam Controller, Steam Controller 2, DualShock 4.
+		</constant>
+		<constant name="STEAM_CONTROLLER_GRIP_LEFT" value="3" enum="SteamControllerPad">
+			The left grip on a Steam Controller device. Compatible models: Steam Controller, Steam Controller 2, DualShock 4.
+		</constant>
+		<constant name="STEAM_CONTROLLER_GRIP_RIGHT" value="4" enum="SteamControllerPad">
+			The right grip on a Steam Controller device. Compatible models: Steam Controller, Steam Controller 2, DualShock 4.
+		</constant>
+		<constant name="STEAM_CONTROLLER_GRIP_BOTH" value="5" enum="SteamControllerPad">
+			Both grips on a Steam Controller device. Compatible models: Steam Controller, Steam Controller 2, DualShock 4.
+		</constant>
+		<constant name="STEAM_HARDWARE_TYPE_NONE" value="0" enum="SteamHardwareType">
+			Not playing on a Steam hardware device.
+		</constant>
+		<constant name="STEAM_HARDWARE_TYPE_STEAM_DECK" value="1" enum="SteamHardwareType">
+			Playing on the Steam Deck.
+		</constant>
+		<constant name="STEAM_HARDWARE_TYPE_STEAM_MACHINE" value="2" enum="SteamHardwareType">
+			Playing on the Steam Machine.
+		</constant>
+		<constant name="STEAM_HARDWARE_TYPE_STEAM_FRAME" value="3" enum="SteamHardwareType">
+			Playing on the Steam Frame.
+		</constant>
+		<constant name="STEAM_HARDWARE_DEFAULT_CONFIG_NONE" value="0" enum="SteamHardwareDefaultConfig">
+		</constant>
+		<constant name="STEAM_HARDWARE_DEFAULT_CONFIG_LOW" value="1" enum="SteamHardwareDefaultConfig">
+		</constant>
+		<constant name="STEAM_HARDWARE_DEFAULT_CONFIG_MEDIUM" value="2" enum="SteamHardwareDefaultConfig">
+		</constant>
+		<constant name="STEAM_HARDWARE_DEFAULT_CONFIG_HIGH" value="3" enum="SteamHardwareDefaultConfig">
+		</constant>
+		<constant name="STEAM_HARDWARE_DEFAULT_CONFIG_MAX" value="4" enum="SteamHardwareDefaultConfig">
+		</constant>
+		<constant name="STEAM_HARDWARE_DEFAULT_CONFIG_STEAM_DECK" value="5" enum="SteamHardwareDefaultConfig">
+			Machine-specific configuration for the Steam Deck.
+		</constant>
+		<constant name="STEAM_HARDWARE_DEFAULT_CONFIG_STEAM_MACHINE" value="6" enum="SteamHardwareDefaultConfig">
+			Machine-specific configuration for the Steam Machine.
+		</constant>
+		<constant name="STEAM_HARDWARE_DEFAULT_CONFIG_STEAM_FRAME" value="7" enum="SteamHardwareDefaultConfig">
+			Machine-specific configuration for the Steam Frame.
+		</constant>
 		<constant name="TEXT_FILTERING_CONTEXT_UNKNOWN" value="0" enum="TextFilteringContext">
 			Unknown context.
 		</constant>
@@ -12874,6 +13477,10 @@
 		</constant>
 		<constant name="UGC_QUERY_RANKED_BY_LAST_UPDATED_DATE" value="19" enum="UGCQuery">
 			Sort by last updated time.
+		</constant>
+		<constant name="UGC_QUERY_RANKED_BY_NUM_PARENT_ITEMS" value="20" enum="UGCQuery">
+		</constant>
+		<constant name="UGC_QUERY_RANKED_BY_NUM_PARENT_COLLECTIONS" value="21" enum="UGCQuery">
 		</constant>
 		<constant name="UGC_READ_CONTINUE_READING_UNTIL_FINISHED" value="0" enum="UGCReadAction">
 			Keeps the file handle open unless the last byte is read.  You can use this when reading large files (over 100MB) in sequential chunks. If the last byte is read, this will behave the same as UGC_READ_CLOSE. Otherwise, it behaves the same as UGC_READ_CONTINUE_READING. This value maintains the same behavior as before the UGCReadAction parameter was introduced.

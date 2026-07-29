@@ -486,7 +486,7 @@ bool Steam::steamInit(uint32_t app_id, bool embed_callbacks) {
 		OS::get_singleton()->set_environment("SteamGameId", itos(app_id));
 	}
 
-	if (SteamAPI_Init()){
+	if (SteamAPI_Init()) {
 		is_init_success = true;
 		current_app_id = app_id;
 		current_steam_id = SteamAPI_ISteamUser_GetSteamID(SteamAPI_SteamUser());
@@ -591,7 +591,7 @@ Dictionary Steam::getBetaInfo() {
 	char beta_name[STEAM_LARGE_BUFFER_SIZE];
 	char beta_description[STEAM_LARGE_BUFFER_SIZE];
 	uint32_t last_updated = 0;
-	if (SteamAPI_ISteamApps_GetBetaInfo(SteamAPI_SteamApps(), beta_index, &beta_flags, &beta_build_id, beta_name, STEAM_LARGE_BUFFER_SIZE, beta_description, STEAM_LARGE_BUFFER_SIZE, &last_updated)){
+	if (SteamAPI_ISteamApps_GetBetaInfo(SteamAPI_SteamApps(), beta_index, &beta_flags, &beta_build_id, beta_name, STEAM_LARGE_BUFFER_SIZE, beta_description, STEAM_LARGE_BUFFER_SIZE, &last_updated)) {
 		beta_info["index"] = beta_index;
 		beta_info["flags"] = beta_flags;
 		beta_info["build_id"] = beta_build_id;
@@ -817,6 +817,18 @@ bool Steam::setActiveBeta(String beta_name) {
 bool Steam::setDLCContext(uint32_t app_id) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamApps() == nullptr, false, "Apps class not found, Steam may not be initialized: setDLCContext");
 	return SteamAPI_ISteamApps_SetDlcContext(SteamAPI_SteamApps(), (AppId_t)app_id);
+}
+
+//
+void Steam::setGamePerformanceSettings(GamePerformanceSetting setting) {
+	ERR_FAIL_COND_MSG(SteamAPI_SteamApps() == nullptr, "Apps class not found, Steam may not be initialized: setGamePerformanceSettings");
+	return SteamAPI_ISteamApps_SetGamePerformanceSetting(SteamAPI_SteamApps(), (EGamePerformanceSetting)setting);
+}
+
+//
+void Steam::setGameRenderResolution(uint32_t width, uint32_t height) {
+	ERR_FAIL_COND_MSG(SteamAPI_SteamApps() == nullptr, "Apps class not found, Steam may not be initialized: setGameRenderResolution");
+	return SteamAPI_ISteamApps_SetGameRenderResolution(SteamAPI_SteamApps(), width, height);
 }
 
 // Allows you to uninstall an optional DLC.
@@ -1678,7 +1690,7 @@ void Steam::mouseWheel(int32 delta, uint32_t browser_handle) {
 }
 
 // Open HTML/JS developer tools
-void Steam::openDeveloperTools(uint32_t browser_handle){
+void Steam::openDeveloperTools(uint32_t browser_handle) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamHTMLSurface() == nullptr, "HTML Surface class not found, Steam may not be initialized: openDeveloperTools");
 	if (browser_handle == 0) {
 		browser_handle = current_browser_handle;
@@ -2036,7 +2048,7 @@ void Steam::deactivateAllActionSetLayers(uint64_t input_handle) {
 // callbacks. Supports one callback at a time. Note: this is called within either runFrame or by SteamAPI_RunCallbacks.
 void Steam::enableActionEventCallbacks() {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamInput() == nullptr, "Input not found, Steam may not be initialized: enableActionEventCallbacks");
-	SteamInputActionEventCallbackPointer callback = [](SteamInputActionEvent_t *call_data){
+	SteamInputActionEventCallbackPointer callback = [](SteamInputActionEvent_t *call_data) {
 		Steam::get_singleton()->input_action_event_callback(call_data);
 	};
 	SteamAPI_ISteamInput_EnableActionEventCallbacks(SteamAPI_SteamInput(), callback);
@@ -2357,13 +2369,13 @@ Steam::InputActionOrigin Steam::translateActionOrigin(InputType destination_inpu
 }
 
 // Triggers a (low-level) haptic pulse on supported controllers.
-void Steam::triggerHapticPulse(uint64_t input_handle, ControllerPad target_pad, int duration) {
+void Steam::triggerHapticPulse(uint64_t input_handle, SteamControllerPad target_pad, int duration) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamInput() == nullptr, "Input not found, Steam may not be initialized: triggerHapticPulse");
 	SteamAPI_ISteamInput_Legacy_TriggerHapticPulse(SteamAPI_SteamInput(), (InputHandle_t)input_handle, (ESteamControllerPad)target_pad, duration);
 }
 
 // Triggers a repeated haptic pulse on supported controllers.
-void Steam::triggerRepeatedHapticPulse(uint64_t input_handle, ControllerPad target_pad, int duration, int offset, int repeat, int flags) {
+void Steam::triggerRepeatedHapticPulse(uint64_t input_handle, SteamControllerPad target_pad, int duration, int offset, int repeat, int flags) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamInput() == nullptr, "Input not found, Steam may not be initialized: triggerRepeatedHapticPulse");
 	SteamAPI_ISteamInput_Legacy_TriggerRepeatedHapticPulse(SteamAPI_SteamInput(), (InputHandle_t)input_handle, (ESteamControllerPad)target_pad, duration, offset, repeat, flags);
 }
@@ -3257,6 +3269,11 @@ uint64_t Steam::requestSpectatorServerList(uint32_t app_id, Array filters) {
 	return (uint64_t)server_list_request;
 }
 
+int Steam::serverFriends(const String &ip, uint16_t port) {
+	ERR_FAIL_COND_V_MSG(SteamAPI_SteamMatchmakingServers() == nullptr, 0, "Matchmaking Servers class not found, Steam may not be initialized: serverFriends");
+	return SteamAPI_ISteamMatchmakingServers_ServerFriends(SteamAPI_SteamMatchmakingServers(), getIPFromString(ip), port, server_friends_response);
+}
+
 // Request the list of rules that the server is running setKeyValue() to set the rules server side.
 int Steam::serverRules(const String &ip, uint16_t port) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamMatchmakingServers() == nullptr, 0, "Matchmaking Servers class not found, Steam may not be initialized: serverRules");
@@ -3589,7 +3606,7 @@ Dictionary Steam::createSocketPair(bool loopback, uint64_t remote_steam_id1, uin
 }
 
 // Send one or more messages without copying the message payload. This is the most efficient way to send messages.
-PackedInt64Array Steam::sendMessages(uint32_t connection_handle, Array messages, int flags) {
+PackedInt64Array Steam::sendMessages(uint32_t connection_handle, Array messages, int flags, bool delete_failed_messages) {
 	PackedInt64Array message_results;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, message_results, "Networking Sockets class not found, Steam may not be initialized: sendMessages");
 
@@ -3606,7 +3623,7 @@ PackedInt64Array Steam::sendMessages(uint32_t connection_handle, Array messages,
 	}
 
 	int64 *messages_output = new int64[total_messages];
-	SteamAPI_ISteamNetworkingSockets_SendMessages(SteamAPI_SteamNetworkingSockets_SteamAPI(), total_messages, sent_messages, messages_output);
+	SteamAPI_ISteamNetworkingSockets_SendMessages(SteamAPI_SteamNetworkingSockets_SteamAPI(), total_messages, sent_messages, messages_output, delete_failed_messages);
 
 	for (size_t i = 0; i < total_messages; i++) {
 		message_results.append((int64_t)messages_output[i]);
@@ -5099,20 +5116,20 @@ uint32_t Steam::writeScreenshot(const PackedByteArray &rgb, int width, int heigh
 ///// TIMELINE
 
 // Add a tag that applies to the entire phase.
-void Steam::addGamePhaseTag(const String &tag_name, const String &tag_icon, const String &tag_group, uint32_t priority ){
+void Steam::addGamePhaseTag(const String &tag_name, const String &tag_icon, const String &tag_group, uint32_t priority ) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: addGamePhaseTag");
 	SteamAPI_ISteamTimeline_AddGamePhaseTag(SteamAPI_SteamTimeline(), tag_name.utf8().get_data(), tag_icon.utf8().get_data(), tag_group.utf8().get_data(), priority);
 }
 
 // Use this to mark an event (A) on the Timeline. This event will be instantaneous. See addRangeTimelineEvent to add
 // events that happened over time.
-uint64_t Steam::addInstantaneousTimelineEvent(const String &title, const String &description, const String &icon, uint32_t icon_priority, float start_offset_seconds, TimelineEventClipPriority possible_clip){
+uint64_t Steam::addInstantaneousTimelineEvent(const String &title, const String &description, const String &icon, uint32_t icon_priority, float start_offset_seconds, TimelineEventClipPriority possible_clip) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamTimeline() == nullptr, 0, "Timeline class not found, Steam may not be initialized: addInstantaneousTimelineEvent");
 	return SteamAPI_ISteamTimeline_AddInstantaneousTimelineEvent(SteamAPI_SteamTimeline(), title.utf8().get_data(), description.utf8().get_data(), icon.utf8().get_data(), icon_priority, start_offset_seconds, (ETimelineEventClipPriority)possible_clip);
 }
 
 // Use this to mark an event (A) on the Timeline that takes some amount of time to complete.
-uint64_t Steam::addRangeTimelineEvent(const String &title, const String &description, const String &icon, uint32_t icon_priority, float start_offset_seconds, float duration, TimelineEventClipPriority possible_clip){
+uint64_t Steam::addRangeTimelineEvent(const String &title, const String &description, const String &icon, uint32_t icon_priority, float start_offset_seconds, float duration, TimelineEventClipPriority possible_clip) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamTimeline() == nullptr, 0, "Timeline class not found, Steam may not be initialized: addRangeTimelineEvent");
 	return (uint64_t)SteamAPI_ISteamTimeline_AddRangeTimelineEvent(SteamAPI_SteamTimeline(), title.utf8().get_data(), description.utf8().get_data(), icon.utf8().get_data(), icon_priority, start_offset_seconds, duration, (ETimelineEventClipPriority)possible_clip);
 }
@@ -5124,7 +5141,7 @@ void Steam::clearTimelineTooltip(float time_delta) {
 }
 
 // Add a tag to whatever time range is represented by the event.
-void Steam::doesEventRecordingExist(uint64_t timeline_event_handle){
+void Steam::doesEventRecordingExist(uint64_t timeline_event_handle) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: doesEventRecordingExist");
 	SteamAPICall_t api_call = SteamAPI_ISteamTimeline_DoesEventRecordingExist(SteamAPI_SteamTimeline(), (TimelineEventHandle_t)timeline_event_handle);
 	callResultTimelineEvenRecordingExists.Set(api_call, this, &Steam::timeline_event_recording_exists);
@@ -5133,32 +5150,32 @@ void Steam::doesEventRecordingExist(uint64_t timeline_event_handle){
 // Use this to determine if video recordings exist for the specified game phase. Steam will sent a
 // timeline_game_phase_recording_exists callback with the result. This can be useful when the game needs to decide
 // whether or not to show a control that will call openOverlayToGamePhase.
-void Steam::doesGamePhaseRecordingExist(const String &phase_id){
+void Steam::doesGamePhaseRecordingExist(const String &phase_id) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: doesGamePhaseRecordingExist");
 	SteamAPICall_t api_call = SteamAPI_ISteamTimeline_DoesGamePhaseRecordingExist(SteamAPI_SteamTimeline(), phase_id.utf8().get_data());
 	callResultTimelineGamePhaseRecordingExists.Set(api_call, this, &Steam::timeline_game_phase_recording_exists);
 }
 
 // Use this to end a game phase that was started with startGamePhase.
-void Steam::endGamePhase(){
+void Steam::endGamePhase() {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: endGamePhase");
 	SteamAPI_ISteamTimeline_EndGamePhase(SteamAPI_SteamTimeline());
 }
 
 // Ends a range timeline event and shows it in the UI.
-void Steam::endRangeTimelineEvent(uint64_t timeline_event_handle, float end_offset_seconds){
+void Steam::endRangeTimelineEvent(uint64_t timeline_event_handle, float end_offset_seconds) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: endRangeTimelineEvent");
 	SteamAPI_ISteamTimeline_EndRangeTimelineEvent(SteamAPI_SteamTimeline(), (TimelineEventHandle_t)timeline_event_handle, end_offset_seconds);
 }
 
 // Opens the Steam overlay to a game phase.
-void Steam::openOverlayToGamePhase(const String &phase_id){
+void Steam::openOverlayToGamePhase(const String &phase_id) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: openOverlayToGamePhase");
 	SteamAPI_ISteamTimeline_OpenOverlayToGamePhase(SteamAPI_SteamTimeline(), phase_id.utf8().get_data());
 }
 
 // Opens the Steam overlay to a timeline event.
-void Steam::openOverlayToTimelineEvent(const uint64_t timeline_event_handle){
+void Steam::openOverlayToTimelineEvent(const uint64_t timeline_event_handle) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: openOverlayToTimelineEvent");
 	SteamAPI_ISteamTimeline_OpenOverlayToTimelineEvent(SteamAPI_SteamTimeline(), (TimelineEventHandle_t)timeline_event_handle);
 }
@@ -5166,32 +5183,32 @@ void Steam::openOverlayToTimelineEvent(const uint64_t timeline_event_handle){
 // Delete the event from the timeline. This can be called on a timeline event from addInstantaneousTimelineEvent,
 // addRangeTimelineEvent, or startRangeTimelineEvent/endRangeTimelineEvent. The timeline event handle must be from the
 // current game process.
-void Steam::removeTimelineEvent(uint64_t this_event){
+void Steam::removeTimelineEvent(uint64_t this_event) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: removeTimelineEvent");
 	SteamAPI_ISteamTimeline_RemoveTimelineEvent(SteamAPI_SteamTimeline(), this_event);
 }
 
 // Add a text attribute that applies to the entire phase.
-void Steam::setGamePhaseAttribute(const String &attribute_group, const String &attribute_value, uint32_t priority){
+void Steam::setGamePhaseAttribute(const String &attribute_group, const String &attribute_value, uint32_t priority) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: setGamePhaseAttribute");
 	SteamAPI_ISteamTimeline_SetGamePhaseAttribute(SteamAPI_SteamTimeline(), attribute_group.utf8().get_data(), attribute_value.utf8().get_data(), priority);
 }
 
 // Games can set a phase ID so they can refer back to a phase in openOverlayToPhase.
-void Steam::setGamePhaseID(const String &phase_id){
+void Steam::setGamePhaseID(const String &phase_id) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: setGamePhaseID");
 	SteamAPI_ISteamTimeline_SetGamePhaseID(SteamAPI_SteamTimeline(), phase_id.utf8().get_data());
 }
 
 // Changes the color of the timeline bar. See ETimelineGameMode comments for how to use each value.
-void Steam::setTimelineGameMode(TimelineGameMode mode){
+void Steam::setTimelineGameMode(TimelineGameMode mode) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: setTimelineGameMode");
 	SteamAPI_ISteamTimeline_SetTimelineGameMode(SteamAPI_SteamTimeline(), (ETimelineGameMode)mode);
 }
 
 // Sets a description for the current game state in the timeline. These help the user to find specific moments in the
 // timeline when saving clips. Setting a new state description replaces any previous description.
-void Steam::setTimelineTooltip(String description, float time_delta){
+void Steam::setTimelineTooltip(String description, float time_delta) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: setTimelineTooltip");
 	SteamAPI_ISteamTimeline_SetTimelineTooltip(SteamAPI_SteamTimeline(), description.utf8().get_data(), time_delta);
 }
@@ -5201,20 +5218,20 @@ void Steam::setTimelineTooltip(String description, float time_delta){
 // between 10 minutes and a few hours in length, and should be the main way a user would think to divide up the game.
 // These are presented to the user in a UI that shows the date the game was played, with one row per game slice. Game
 // phases should be used to mark sections of gameplay that the user might be interested in watching.
-void Steam::startGamePhase(){
+void Steam::startGamePhase() {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: startGamePhase");
 	SteamAPI_ISteamTimeline_StartGamePhase(SteamAPI_SteamTimeline());
 }
 
 // Starts a timeline event at a the current time, plus an offset in seconds. This event must be ended with
 // endRangeTimelineEvent. Any timeline events that have not been ended when the game exits will be discarded.
-uint64_t Steam::startRangeTimelineEvent(const String &title, const String &description, const String &icon, uint32_t priority, float start_offset_seconds, TimelineEventClipPriority possible_clip){
+uint64_t Steam::startRangeTimelineEvent(const String &title, const String &description, const String &icon, uint32_t priority, float start_offset_seconds, TimelineEventClipPriority possible_clip) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamTimeline() == nullptr, 0, "Timeline class not found, Steam may not be initialized: startRangeTimelineEvent");
 	return (uint64_t)SteamAPI_ISteamTimeline_StartRangeTimelineEvent(SteamAPI_SteamTimeline(), title.utf8().get_data(), description.utf8().get_data(), icon.utf8().get_data(), priority, start_offset_seconds, (ETimelineEventClipPriority)possible_clip);
 }
 
 // Updates fields on a range timeline event that was started with StartRangeTimelineEvent, and which has not been ended.
-void Steam::updateRangeTimelineEvent(uint64_t this_event, const String &title, const String &description, const String &icon, uint32_t priority, TimelineEventClipPriority possible_clip){
+void Steam::updateRangeTimelineEvent(uint64_t this_event, const String &title, const String &description, const String &icon, uint32_t priority, TimelineEventClipPriority possible_clip) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamTimeline() == nullptr, "Timeline class not found, Steam may not be initialized: updateRangeTimelineEvent");
 	SteamAPI_ISteamTimeline_UpdateRangeTimelineEvent(SteamAPI_SteamTimeline(), this_event, title.utf8().get_data(), description.utf8().get_data(), icon.utf8().get_data(), priority, (ETimelineEventClipPriority)possible_clip);
 }
@@ -6949,6 +6966,13 @@ int Steam::getServerRealTime() {
 	return SteamAPI_ISteamUtils_GetServerRealTime(SteamAPI_SteamUtils());
 }
 
+// Use this method to help choose default game settings (video and other) that you have tuned for specific Steam hardware.
+// It also enables changing your default game settings on future Steam hardware without needing to recompile your game.
+Steam::SteamHardwareDefaultConfig Steam::getSteamHardwareDefaultConfig() {
+	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUtils() == nullptr, STEAM_HARDWARE_DEFAULT_CONFIG_NONE, "Utils class not found, Steam may not be initialized: getSteamHardwareDefaultConfig");
+	return (SteamHardwareDefaultConfig)SteamAPI_ISteamUtils_GetSteamHardwareDefaultConfig(SteamAPI_SteamUtils());
+}
+
 // Get the Steam user interface language.
 String Steam::getSteamUILanguage() {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUtils() == nullptr, "", "Utils class not found, Steam may not be initialized: getSteamUILanguage");
@@ -6978,6 +7002,22 @@ bool Steam::isOverlayEnabled() {
 	return SteamAPI_ISteamUtils_IsOverlayEnabled(SteamAPI_SteamUtils());
 }
 
+// Returns if your process is running on a Steam Deck, Machine, Frame or other hardware. This method is intended to be
+// used for usage analytics, support, diagnostic and other non-functional decisions. If your process needs to make a
+// feature or device capability related decision, the Steamworks SDK exposes a set of other methods. Using one of these
+// alternate methods will enable your game to run correctly on future versions of Steam hardware where this method would
+// return a hardware type not present in old SDK versions.
+Steam::SteamHardwareType Steam::isRunningOnSteamHardware() {
+	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUtils() == nullptr, STEAM_HARDWARE_TYPE_NONE, "Utils class not found, Steam may not be initialized: isRunningOnSteamHardware");
+	return (SteamHardwareType)SteamAPI_ISteamUtils_IsRunningOnSteamHardware(SteamAPI_SteamUtils());
+}
+
+// Returns true if running under the Proton compatibility layer.
+bool Steam::isRunningUnderProton() {
+	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUtils() == nullptr, false, "Utils class not found, Steam may not be initialized: isRunningUnderProton");
+	return SteamAPI_ISteamUtils_IsRunningUnderProton(SteamAPI_SteamUtils());
+}
+
 // Returns whether the current launcher is a Steam China launcher. You can cause the client to behave as the Steam China
 // launcher by adding -dev -steamchina to the command line when running Steam.
 bool Steam::isSteamChinaLauncher() {
@@ -6995,12 +7035,6 @@ bool Steam::isSteamInBigPictureMode() {
 bool Steam::isSteamRunningInVR() {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUtils() == nullptr, false, "Utils class not found, Steam may not be initialized: isSteamRunningInVR");
 	return SteamAPI_ISteamUtils_IsSteamRunningInVR(SteamAPI_SteamUtils());
-}
-
-// Returns true if currently running on the Steam Deck device.
-bool Steam::isSteamRunningOnSteamDeck() {
-	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUtils() == nullptr, false, "Utils class not found, Steam may not be initialized: isSteamRunningOnSteamDeck");
-	return SteamAPI_ISteamUtils_IsSteamRunningOnSteamDeck(SteamAPI_SteamUtils());
 }
 
 // Checks if the HMD view will be streamed via Steam In-Home Streaming.
@@ -7781,52 +7815,69 @@ void Steam::lobby_invite(LobbyInvite_t *lobby_data) {
 ///// MATCHMAKING SERVER
 
 // A server has responded to a list request.
-void Steam::ServerResponded(HServerListRequest list_request_handle, int server){
+void Steam::ServerResponded(HServerListRequest list_request_handle, int server) {
 	emit_signal("request_server_list_server_responded", (uint64_t)list_request_handle, server);
 }
 
 // A server has failed to respond to a list request.
-void Steam::ServerFailedToRespond(HServerListRequest list_request_handle, int server){
+void Steam::ServerFailedToRespond(HServerListRequest list_request_handle, int server) {
 	emit_signal("request_server_list_server_failed_to_respond", (uint64_t)list_request_handle, server);
 }
 
 // A server list request has completed.
-void Steam::RefreshComplete(HServerListRequest list_request_handle, EMatchMakingServerResponse response){
+void Steam::RefreshComplete(HServerListRequest list_request_handle, EMatchMakingServerResponse response) {
 	emit_signal("request_server_list_refresh_complete", (uint64_t)list_request_handle, MatchMakingServerResponse(response));
 }
 
 // The server has responded to a ping request.
-void Steam::ServerResponded(gameserveritem_t &server){
+void Steam::ServerResponded(gameserveritem_t &server) {
 	emit_signal("ping_server_responded", gameServerItemToDictionary(&server));
 }
 
 // The server has failed to respond to a ping request.
-void Steam::ServerFailedToRespond(){
+void Steam::ServerFailedToRespond() {
 	emit_signal("ping_server_failed_to_respond");
 }
 
+// Got data on a friend who has played on the server -- you'll get this callback once per player on the server which you
+// have requested player data on.
+void Steam::AddFriendToList(CSteamID steam_id, const char *friend_name, bool currently_connected) {
+	uint64_t friend_id = steam_id.ConvertToUint64();
+	emit_signal("add_friend_to_list", friend_id, String(friend_name), currently_connected);
+}
+
 // The server has responded to a player details request.
-void Steam::AddPlayerToList(const char *player_name, int score, float time_played){
+void Steam::AddPlayerToList(const char *player_name, int score, float time_played) {
 	emit_signal("player_details_player_added", String(player_name), score, time_played);
 }
 
-void Steam::PlayersFailedToRespond(){
+// The server failed to respond to the request for player details.
+void Steam::FriendsFailedToRespond() {
+	emit_signal("friends_failed_to_respond");
+}
+
+// The server has finished responding to the player details request (ie, you won't get anymore AddPlayerToList callbacks)
+void Steam::FriendsRefreshComplete() {
+	emit_signal("friends_refresh_complete");
+}
+
+void Steam::PlayersFailedToRespond() {
 	emit_signal("player_details_failed_to_respond");
 }
 
-void Steam::PlayersRefreshComplete(){
+void Steam::PlayersRefreshComplete() {
 	emit_signal("player_details_refresh_complete");
 }
 
-void Steam::RulesResponded(const char *rule, const char *value){
+void Steam::RulesResponded(const char *rule, const char *value) {
 	emit_signal("server_rules_responded", String(rule), String(value));
 }
 
-void Steam::RulesFailedToRespond(){
+void Steam::RulesFailedToRespond() {
 	emit_signal("server_rules_failed_to_respond");
 }
 
-void Steam::RulesRefreshComplete(){
+void Steam::RulesRefreshComplete() {
 	emit_signal("server_rules_refresh_complete");
 }
 
@@ -8254,13 +8305,13 @@ void Steam::filter_text_dictionary_changed(FilterTextDictionaryChanged_t *call_d
 ///// VIDEO
 
 // Automatically called whenever the user starts broadcasting.
-void Steam::broadcast_upload_start(BroadcastUploadStart_t *call_data){
+void Steam::broadcast_upload_start(BroadcastUploadStart_t *call_data) {
 	bool is_rtmp = call_data->m_bIsRTMP;
 	emit_signal("broadcast_upload_start", is_rtmp);
 }
 
 // Automatically called whenever the user stops broadcasting.
-void Steam::broadcast_upload_stop(BroadcastUploadStop_t *call_data){
+void Steam::broadcast_upload_stop(BroadcastUploadStop_t *call_data) {
 	EBroadcastUploadResult result = call_data->m_eResult;
 	emit_signal("broadcast_upload_stop", result);
 }
@@ -9013,6 +9064,8 @@ void Steam::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("markContentCorrupt", "missing_files_only"), &Steam::markContentCorrupt);
 	ClassDB::bind_method(D_METHOD("setActiveBeta", "beta_name"), &Steam::setActiveBeta);
 	ClassDB::bind_method(D_METHOD("setDLCContext", "app_id"), &Steam::setDLCContext);
+	ClassDB::bind_method(D_METHOD("setGamePerformanceSettings", "setting"), &Steam::setGamePerformanceSettings);
+	ClassDB::bind_method(D_METHOD("setGameRenderResolution", "width", "height"), &Steam::setGameRenderResolution);
 	ClassDB::bind_method(D_METHOD("uninstallDLC", "dlc_id"), &Steam::uninstallDLC);
 
 	// FRIENDS
@@ -9297,6 +9350,7 @@ void Steam::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("requestInternetServerList", "app_id", "filters"), &Steam::requestInternetServerList);
 	ClassDB::bind_method(D_METHOD("requestLANServerList", "app_id"), &Steam::requestLANServerList);
 	ClassDB::bind_method(D_METHOD("requestSpectatorServerList", "app_id", "filters"), &Steam::requestSpectatorServerList);
+	ClassDB::bind_method(D_METHOD("serverFriends", "ip", "port"), &Steam::serverFriends);
 	ClassDB::bind_method(D_METHOD("serverRules", "ip", "port"), &Steam::serverRules);
 
 	// MUSIC
@@ -9366,7 +9420,7 @@ void Steam::_bind_methods() {
 //	ClassDB::bind_method(D_METHOD("receivedRelayAuthTicket"), &Steam::receivedRelayAuthTicket);	<------ Uses datagram relay structs which were removed from base SDK
 	ClassDB::bind_method(D_METHOD("resetIdentity", "remote_steam_id"), &Steam::resetIdentity);
 	ClassDB::bind_method(D_METHOD("runNetworkingCallbacks"), &Steam::runNetworkingCallbacks);
-	ClassDB::bind_method(D_METHOD("sendMessages", "connection_handle", "messages", "flags"), &Steam::sendMessages);
+	ClassDB::bind_method(D_METHOD("sendMessages", "connection_handle", "messages", "flags", "delete_failed_messages"), &Steam::sendMessages);
 	ClassDB::bind_method(D_METHOD("sendMessageToConnection", "connection_handle", "message", "flags"), &Steam::sendMessageToConnection);
 	ClassDB::bind_method(D_METHOD("setCertificate", "certificate"), &Steam::setCertificate);
 	ClassDB::bind_method(D_METHOD("setConnectionPollGroup", "connection_handle", "poll_group"), &Steam::setConnectionPollGroup);
@@ -9703,14 +9757,16 @@ void Steam::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("getSecondsSinceAppActive"), &Steam::getSecondsSinceAppActive);
 	ClassDB::bind_method(D_METHOD("getSecondsSinceComputerActive"), &Steam::getSecondsSinceComputerActive);
 	ClassDB::bind_method(D_METHOD("getServerRealTime"), &Steam::getServerRealTime);
+	ClassDB::bind_method(D_METHOD("getSteamHardwareDefaultConfig"), &Steam::getSteamHardwareDefaultConfig);
 	ClassDB::bind_method(D_METHOD("getSteamUILanguage"), &Steam::getSteamUILanguage);
 	ClassDB::bind_method(D_METHOD("initFilterText"), &Steam::initFilterText);
 	ClassDB::bind_method(D_METHOD("isAPICallCompleted"), &Steam::isAPICallCompleted);
 	ClassDB::bind_method(D_METHOD("isOverlayEnabled"), &Steam::isOverlayEnabled);
+	ClassDB::bind_method(D_METHOD("isRunningOnSteamHardware"), &Steam::isRunningOnSteamHardware);
 	ClassDB::bind_method(D_METHOD("isSteamChinaLauncher"), &Steam::isSteamChinaLauncher);
+	ClassDB::bind_method(D_METHOD("isRunningUnderProton"), &Steam::isRunningUnderProton);
 	ClassDB::bind_method(D_METHOD("isSteamInBigPictureMode"), &Steam::isSteamInBigPictureMode);
 	ClassDB::bind_method(D_METHOD("isSteamRunningInVR"), &Steam::isSteamRunningInVR);
-	ClassDB::bind_method(D_METHOD("isSteamRunningOnSteamDeck"), &Steam::isSteamRunningOnSteamDeck);
 	ClassDB::bind_method(D_METHOD("isVRHeadsetStreamingEnabled"), &Steam::isVRHeadsetStreamingEnabled);
 	ClassDB::bind_method(D_METHOD("overlayNeedsPresent"), &Steam::overlayNeedsPresent);
 	ClassDB::bind_method(D_METHOD("setGameLauncherMode", "mode"), &Steam::setGameLauncherMode);
@@ -9827,17 +9883,20 @@ void Steam::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("lobby_kicked", PropertyInfo(Variant::INT, "lobby_id"), PropertyInfo(Variant::INT, "admin_id"), PropertyInfo(Variant::INT, "due_to_disconnect")));
 
 	// MATCHMAKING SERVERS
-	ADD_SIGNAL(MethodInfo("request_server_list_server_responded", PropertyInfo(Variant::INT, "request_handle"), PropertyInfo(Variant::INT, "server")));
-	ADD_SIGNAL(MethodInfo("request_server_list_server_failed_to_respond", PropertyInfo(Variant::INT, "request_handle"), PropertyInfo(Variant::INT, "server")));
-	ADD_SIGNAL(MethodInfo("request_server_list_refresh_complete", PropertyInfo(Variant::INT, "request_handle"), PropertyInfo(Variant::INT, "response")));
-	ADD_SIGNAL(MethodInfo("ping_server_responded", PropertyInfo(Variant::DICTIONARY, "server_details")));
+	ADD_SIGNAL(MethodInfo("add_friend_to_list", PropertyInfo(Variant::INT, "friend_id"), PropertyInfo(Variant::STRING, "friend_name"), PropertyInfo(Variant::BOOL, "currently_connected")));
+	ADD_SIGNAL(MethodInfo("friends_failed_to_respond"));
+	ADD_SIGNAL(MethodInfo("friends_refresh_complete"));
 	ADD_SIGNAL(MethodInfo("ping_server_failed_to_respond"));
-	ADD_SIGNAL(MethodInfo("player_details_player_added", PropertyInfo(Variant::STRING, "name"), PropertyInfo(Variant::INT, "score"), PropertyInfo(Variant::FLOAT, "time_played")));
+	ADD_SIGNAL(MethodInfo("ping_server_responded", PropertyInfo(Variant::DICTIONARY, "server_details")));
 	ADD_SIGNAL(MethodInfo("player_details_failed_to_respond"));
+	ADD_SIGNAL(MethodInfo("player_details_player_added", PropertyInfo(Variant::STRING, "name"), PropertyInfo(Variant::INT, "score"), PropertyInfo(Variant::FLOAT, "time_played")));
 	ADD_SIGNAL(MethodInfo("player_details_refresh_complete"));
-	ADD_SIGNAL(MethodInfo("server_rules_responded", PropertyInfo(Variant::STRING, "rule"), PropertyInfo(Variant::STRING, "value")));
+	ADD_SIGNAL(MethodInfo("request_server_list_refresh_complete", PropertyInfo(Variant::INT, "request_handle"), PropertyInfo(Variant::INT, "response")));
+	ADD_SIGNAL(MethodInfo("request_server_list_server_failed_to_respond", PropertyInfo(Variant::INT, "request_handle"), PropertyInfo(Variant::INT, "server")));
+	ADD_SIGNAL(MethodInfo("request_server_list_server_responded", PropertyInfo(Variant::INT, "request_handle"), PropertyInfo(Variant::INT, "server")));
 	ADD_SIGNAL(MethodInfo("server_rules_failed_to_respond"));
 	ADD_SIGNAL(MethodInfo("server_rules_refresh_complete"));
+	ADD_SIGNAL(MethodInfo("server_rules_responded", PropertyInfo(Variant::STRING, "rule"), PropertyInfo(Variant::STRING, "value")));
 
 	// MUSIC
 	ADD_SIGNAL(MethodInfo("music_playback_status_has_changed"));
@@ -10290,10 +10349,6 @@ void Steam::_bind_methods() {
 	BIND_ENUM_CONSTANT(CONTROLLER_HAPTIC_TYPE_TICK);
 	BIND_ENUM_CONSTANT(CONTROLLER_HAPTIC_TYPE_CLICK);
 
-	// ControllerPad Enums
-	BIND_ENUM_CONSTANT(STEAM_CONTROLLER_PAD_LEFT);
-	BIND_ENUM_CONSTANT(STEAM_CONTROLLER_PAD_RIGHT);
-
 	// DenyReason Enums
 	BIND_ENUM_CONSTANT(DENY_INVALID);
 	BIND_ENUM_CONSTANT(DENY_INVALID_VERSION);
@@ -10391,7 +10446,6 @@ void Steam::_bind_methods() {
 	BIND_ENUM_CONSTANT(GAME_TYPE_APP);
 	BIND_ENUM_CONSTANT(GAME_TYPE_GAME_MOD);
 	BIND_ENUM_CONSTANT(GAME_TYPE_SHORTCUT);
-	BIND_ENUM_CONSTANT(GAME_TYPE_P2P);
 
 	// GamepadTextInputLineMode Enums
 	BIND_ENUM_CONSTANT(GAMEPAD_TEXT_INPUT_LINE_MODE_SINGLE_LINE);
@@ -10400,6 +10454,14 @@ void Steam::_bind_methods() {
 	// GamepadTextInputMode Enums
 	BIND_ENUM_CONSTANT(GAMEPAD_TEXT_INPUT_MODE_NORMAL);
 	BIND_ENUM_CONSTANT(GAMEPAD_TEXT_INPUT_MODE_PASSWORD);
+
+	// GamePerformanceSetting Enums
+	BIND_ENUM_CONSTANT(GAME_PERFORMANCE_SETTING_NOT_SET);
+	BIND_ENUM_CONSTANT(GAME_PERFORMANCE_SETTING_LOW);
+	BIND_ENUM_CONSTANT(GAME_PERFORMANCE_SETTING_MEDIUM);
+	BIND_ENUM_CONSTANT(GAME_PERFORMANCE_SETTING_HIGH);
+	BIND_ENUM_CONSTANT(GAME_PERFORMANCE_SETTING_ULTRA);
+	BIND_ENUM_CONSTANT(GAME_PERFORMANCE_SETTING_CUSTOM);
 
 	// HTMLKeyModifiers Enums
 	BIND_BITFIELD_FLAG(HTML_KEY_MODIFIER_NONE);
@@ -11030,6 +11092,195 @@ void Steam::_bind_methods() {
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_GENERIC_MISC6);
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_GENERIC_MISC7);
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_GENERIC_MISC8);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_PULL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_DPAD_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_PITCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_YAW);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_ROLL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_GL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_GR);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_C);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED1);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED2);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED3);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED4);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED5);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED6);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED7);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED8);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED9);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RESERVED10);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_A);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_B);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_X);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_Y);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L1);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R1);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_MENU);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_VIEW);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_SWIPE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_PAD_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_SWIPE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_PAD_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L2_SOFTPULL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L2);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R2_SOFTPULL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R2);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L3);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LEFT_STICK_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R3);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RIGHT_STICK_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L4);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R4);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_L5);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_R5);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_GYRO_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_GYRO_PITCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_GYRO_YAW);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_GYRO_ROLL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_LGRIP);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RGRIP);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED1);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED2);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED3);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED4);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED5);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED6);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED7);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED8);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED9);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED10);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED11);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED12);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED13);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED14);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED15);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED16);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED17);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED18);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED19);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMCONTROLLER2026_RESERVED20);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_A_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_A_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_B_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_B_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_X_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_X_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_Y_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_Y_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_TRIGGER_PULL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_TRIGGER_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_TRIGGER_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_TRIGGER_PULL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_TRIGGER_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_TRIGGER_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_MENU_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_MENU_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_VIEW_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_VIEW_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_BUMPER_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_BUMPER_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_BUMPER_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_BUMPER_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_STICK_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_STICK_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_NORTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_SOUTH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_WEST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_EAST);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_DPAD_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GYRO_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GYRO_PITCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GYRO_YAW);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GYRO_ROLL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GYRO_MOVE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GYRO_PITCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GYRO_YAW);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GYRO_ROLL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GRIP_PULL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GRIP_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_GRIP_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GRIP_PULL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GRIP_CLICK);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_GRIP_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_LEFT_THUMBREST_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RIGHT_THUMBREST_TOUCH);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED1);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED2);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED3);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED4);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED5);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED6);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED7);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED8);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED9);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED10);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED11);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED12);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED13);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED14);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED15);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED16);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED17);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED18);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED19);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_RESERVED20);
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_COUNT);
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_MAXIMUM_POSSIBLE_VALUE);
 
@@ -11092,6 +11343,10 @@ void Steam::_bind_methods() {
 	BIND_ENUM_CONSTANT(INPUT_TYPE_PS3_CONTROLLER);
 	BIND_ENUM_CONSTANT(INPUT_TYPE_PS5_CONTROLLER);
 	BIND_ENUM_CONSTANT(INPUT_TYPE_STEAM_DECK_CONTROLLER);
+	BIND_ENUM_CONSTANT(INPUT_TYPE_STEAM_OS_HANDHELD);
+	BIND_ENUM_CONSTANT(INPUT_TYPE_SWITCH2_PRO_CONTROLLER);
+	BIND_ENUM_CONSTANT(INPUT_TYPE_STEAM_CONTROLLER2);
+	BIND_ENUM_CONSTANT(INPUT_TYPE_STEAM_FRAME_CONTROLLER_PAIR);
 	BIND_ENUM_CONSTANT(INPUT_TYPE_COUNT);
 	BIND_ENUM_CONSTANT(INPUT_TYPE_MAXIMUM_POSSIBLE_VALUE);
 
@@ -11831,6 +12086,30 @@ void Steam::_bind_methods() {
 	BIND_ENUM_CONSTANT(STEAM_API_INIT_RESULT_NO_STEAM_CLIENT);
 	BIND_ENUM_CONSTANT(STEAM_API_INIT_RESULT_VERSION_MISMATCH);
 
+	// SteamControllerPad Enums
+	BIND_ENUM_CONSTANT(STEAM_CONTROLLER_PAD_LEFT);
+	BIND_ENUM_CONSTANT(STEAM_CONTROLLER_PAD_RIGHT);
+	BIND_ENUM_CONSTANT(STEAM_CONTROLLER_PAD_BOTH);
+	BIND_ENUM_CONSTANT(STEAM_CONTROLLER_GRIP_LEFT);
+	BIND_ENUM_CONSTANT(STEAM_CONTROLLER_GRIP_RIGHT);
+	BIND_ENUM_CONSTANT(STEAM_CONTROLLER_GRIP_BOTH);
+
+	// SteamHardwareType Enums
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_TYPE_NONE);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_TYPE_STEAM_DECK);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_TYPE_STEAM_MACHINE);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_TYPE_STEAM_FRAME);
+
+	// SteamHardwareDefaultConfig Enums
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_DEFAULT_CONFIG_NONE);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_DEFAULT_CONFIG_LOW);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_DEFAULT_CONFIG_MEDIUM);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_DEFAULT_CONFIG_HIGH);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_DEFAULT_CONFIG_MAX);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_DEFAULT_CONFIG_STEAM_DECK);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_DEFAULT_CONFIG_STEAM_MACHINE);
+	BIND_ENUM_CONSTANT(STEAM_HARDWARE_DEFAULT_CONFIG_STEAM_FRAME);
+
 	// TextFilteringContext Enums
 	BIND_ENUM_CONSTANT(TEXT_FILTERING_CONTEXT_UNKNOWN);
 	BIND_ENUM_CONSTANT(TEXT_FILTERING_CONTEXT_GAME_CONTENT);
@@ -11903,6 +12182,8 @@ void Steam::_bind_methods() {
 	BIND_ENUM_CONSTANT(UGC_QUERY_RANKED_BY_PLAYTIME_SESSIONS_TREND);
 	BIND_ENUM_CONSTANT(UGC_QUERY_RANKED_BY_LIFETIME_PLAYTIME_SESSIONS);
 	BIND_ENUM_CONSTANT(UGC_QUERY_RANKED_BY_LAST_UPDATED_DATE);
+	BIND_ENUM_CONSTANT(UGC_QUERY_RANKED_BY_NUM_PARENT_ITEMS);
+	BIND_ENUM_CONSTANT(UGC_QUERY_RANKED_BY_NUM_PARENT_COLLECTIONS);
 
 	// UGCReadAction Enums
 	BIND_ENUM_CONSTANT(UGC_READ_CONTINUE_READING_UNTIL_FINISHED);
