@@ -3,7 +3,12 @@ import os
 
 opts = Variables([], ARGUMENTS)
 
-# Gets the standard flags CC, CCX, etc.
+# Set godot-cpp defaults
+env = Environment()
+env["api_version"] = "4.4"
+Export("env")
+
+# Import env from godot-cpp
 env = SConscript("godot-cpp/SConstruct")
 
 # Define our options
