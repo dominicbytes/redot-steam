@@ -1,24 +1,16 @@
 #!python
 import os
 
-def configure(env):
-	from SCons.Script import BoolVariable, EnumVariable, Variables, Help
-
-	env_vars = Variables()
-
-	env_vars.Update(env)
-	Help(env_vars.GenerateHelpText(env))
-
 opts = Variables([], ARGUMENTS)
 
 # Gets the standard flags CC, CCX, etc.
 env = SConscript("godot-cpp/SConstruct")
 
 # Define our options
-opts.Add(PathVariable("target_path", "The path where the lib is installed.", "bin/"))
+opts.Add(PathVariable("target_path", "The path where the plugin is installed.", "bin/", PathVariable.PathAccept))
 opts.Add(PathVariable("target_name", "The library name.", "godotsteam", PathVariable.PathAccept))
+opts.Update(env)
 
-configure(env)
 # Local dependency paths, adapt them to your setup
 steam_lib_path = "godotsteam/sdk/redistributable_bin"
 
@@ -26,7 +18,7 @@ steam_lib_path = "godotsteam/sdk/redistributable_bin"
 if env['platform'] in ("macos", "osx"):
 	# Set the correct Steam library
 	steam_lib_path += "/osx"
-	steamworks_library = "steam_api"
+	steamworks_library = "libsteam_api.dylib"
 
 elif env['platform'] in ("linuxbsd", "linux"):
 	env.Append(RPATH=env.Literal("\\$$ORIGIN"))
@@ -74,25 +66,47 @@ sources = Glob("godotsteam/*.cpp")
 # To get the in-editor docs functioning properly
 if env["target"] in ["editor", "template_debug"]:
 	try:
-		doc_data = env.GodotCPPDocData("src/gen/doc_data.gen.cpp", source=Glob("godotsteam/doc_classes/*.xml"))
+		doc_data = env.GodotCPPDocData("godotsteam/gen/doc_data.gen.cpp", source=Glob("godotsteam/doc_classes/*.xml"))
 		sources.append(doc_data)
-    except AttributeError:
-        print("Not including class reference as we're targeting a pre-4.3 baseline.")
+	except AttributeError:
+		print("Not including class reference as we're targeting a pre-4.3 baseline.")
 
+# These should probably go in godot-cpp upstream
 if env["platform"] == "macos":
-	library = env.SharedLibrary(
-		"bin/libgodotsteam.{}.{}.framework/libgodotsteam.{}.{}".format(
-			env["platform"], env["target"], env["platform"], env["target"]
-		),
-		source=sources,
-	)
-else:
-	library = env.SharedLibrary(
-		"bin/libgodotsteam{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
-		source=sources,
-	)
+	env["SHLIBSUFFIX"] = ".dylib"
+env["SHOBJSUFFIX"] = env["suffix"] + env["SHOBJSUFFIX"]
+
+libdir = {
+	"android-arm64": "androidarm64",
+	"linux-x86_64": "linux64",
+	"linux-x86_32": "linux32",
+	"macos-universal": "osx",
+	"macos-x86_64": "osx",
+	"macos-arm64": "osx",
+	"windows-x86_64": "win64",
+	"windows-x86_32": "win32",
+}.get("{}-{}".format(env["platform"], env["arch"]), "lib")
+extpath = "{}/addons/{}".format(env["target_path"], env["target_name"])
+
+library = env.SharedLibrary(
+	"{}/{}/libgodotsteam{}{}".format(extpath, libdir, env["suffix"], env["SHLIBSUFFIX"]),
+	source=sources,
+)
 
 Default(library)
+
+ext = env.InstallAs(extpath + "/godotsteam.gdextension", "godotsteam.gdextension")
+
+Default(ext)
+
+redist = env.InstallAs("{}/{}/{}".format(extpath, libdir, steamworks_library), steam_lib_path + "/" + steamworks_library)
+
+Default(redist)
+
+plugin = env.Install(env.Dir(extpath), env.Glob("plugin/*"))
+plugin += env.Install(env.Dir(extpath), "plugin/editor")
+
+Default(plugin)
 
 # Generates help for the -h scons option.
 Help(opts.GenerateHelpText(env))

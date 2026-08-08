@@ -7,8 +7,13 @@
 **/ipch/
 **/*.obj
 **/*.VC.db
+**/*.os
+**/*.swp
+**/*.gen.*
 
 .vscode/
+/tags
+/TAGS
 bin/
 .sconsign.dblite
 
