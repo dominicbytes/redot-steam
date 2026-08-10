@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "docs" / "gamedev" / "parity" / "upstream-api.json"
+UPSTREAM_COMMIT = "8e0b976d0ae02a23c35daecf32c6b7bfeba0da08"
 CLASS_SOURCES = {
     "Steam": "godotsteam/godotsteam.cpp",
     "SteamMultiplayerPeer": "godotsteam/godotsteam_multiplayer_peer.cpp",
@@ -33,7 +34,7 @@ def git(*args: str, binary: bool = False) -> str | bytes:
 
 
 def upstream_bytes(path: str) -> bytes:
-    return git("show", f"HEAD:{path}", binary=True)
+    return git("show", f"{UPSTREAM_COMMIT}:{path}", binary=True)
 
 
 def extract_cpp(text: str) -> dict[str, list[str]]:
@@ -139,7 +140,7 @@ def build_inventory() -> dict:
         "schema": 2,
         "oracle": {
             "repository": "https://codeberg.org/godotsteam/godotsteam",
-            "commit": git("rev-parse", "HEAD"),
+            "commit": UPSTREAM_COMMIT,
             "godotsteam_version": "4.21",
             "steamworks_sdk": "1.65",
         },
