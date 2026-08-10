@@ -1,0 +1,32 @@
+; RedotSteam native compatibility fixture.
+; The addon is installed here by scripts/build_windows.ps1 for local verification.
+
+config_version=5
+
+[application]
+
+config/name="RedotSteam Native Fixture"
+run/main_scene="res://main.tscn"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=360
+
+[editor_plugins]
+
+enabled=PackedStringArray("godotsteam")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+
+[steam]
+
+initialization/processes/initialize_on_startup=false
+initialization/processes/embed_callbacks=false
+
+[steam/updates]
+
+redotsteam/check_for_updates=false

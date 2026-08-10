@@ -2019,7 +2019,7 @@ enum LocalFileChange {
 	LOCAL_FILE_CHANGE_FILE_DELETED = k_ERemoteStorageLocalFileChange_FileDeleted
 };
 
-enum RemoteStoragePlatform : uint32_t {
+enum RemoteStoragePlatform : int32_t {
 	// Found in isteamremotestorage.h
 	REMOTE_STORAGE_PLATFORM_NONE = k_ERemoteStoragePlatformNone,
 	REMOTE_STORAGE_PLATFORM_WINDOWS = k_ERemoteStoragePlatformWindows,
@@ -2029,7 +2029,7 @@ enum RemoteStoragePlatform : uint32_t {
 	REMOTE_STORAGE_PLATFORM_SWITCH = k_ERemoteStoragePlatformSwitch,
 	REMOTE_STORAGE_PLATFORM_ANDROID = k_ERemoteStoragePlatformAndroid,
 	REMOTE_STORAGE_PLATFORM_IOS = k_ERemoteStoragePlatformIOS,
-	REMOTE_STORAGE_PLATFORM_ALL = k_ERemoteStoragePlatformAll
+	REMOTE_STORAGE_PLATFORM_ALL = static_cast<int32_t>(k_ERemoteStoragePlatformAll)
 };
 
 enum RemoteStoragePublishedFileVisibility {

@@ -20,3 +20,9 @@ bin/
 /godotsteam/sdk/public
 /godotsteam/sdk/redistributable_bin
 /godot-cpp
+/.work/
+/artifacts/
+*.o
+/tests/fixture/addons/godotsteam/
+/tests/mock-fixture/.godot/
+/tests/fixture/.godot/
