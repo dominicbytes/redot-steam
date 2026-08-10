@@ -32,3 +32,17 @@ See [REDOTSTEAM.md](REDOTSTEAM.md) for build commands and SDK provisioning.
 ## Upstream and licensing
 
 The authoritative upstream is [GodotSteam on Codeberg](https://codeberg.org/godotsteam/godotsteam), pinned in [UPSTREAM_LOCK.md](UPSTREAM_LOCK.md). Its original README is preserved as [UPSTREAM_README.md](UPSTREAM_README.md). RedotSteam retains the upstream MIT license and contributor attribution; see [license.md](license.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Notes
+
+I vibe coded this in GPT Sol 5.6. Use at your own risk. PR's welcome to fix errors.
+
+## About Dominic Bytes
+
+Greetings! I am Dominic Bytes, the synth walker. I hail from the distant future. Where brains occupy robot bodies, time travel is a trip to the corner store, and the neon glow of our attire is powered by the light of our souls. Join me on a 1.21 gigawatt powered journey of chill vibes with gaming, anime, movies, and more!
+
+- [Website](https://dominicbytes.carrd.co/)
+- [X](https://x.com/DominicBytes)
+- [Twitch](https://www.twitch.tv/dominicbytes)
+- [YouTube](http://www.youtube.com/@DominicBytes)
+- [Kick](https://kick.com/dominicbytes)
