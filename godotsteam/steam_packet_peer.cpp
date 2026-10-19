@@ -36,7 +36,7 @@ SteamPacketPeer::SteamPacketPeer() {
 	connection_handle = k_HSteamNetConnection_Invalid;
 	peer_id = 0;
 	last_packet = nullptr;
-	configured_lanes = SteamProjectSettings::get_max_channels();
+	configured_lanes = 0;
 }
 
 SteamPacketPeer::~SteamPacketPeer() {
@@ -57,11 +57,19 @@ void SteamPacketPeer::set_steam_id(uint64_t p_steam_id) {
 uint64_t SteamPacketPeer::get_steam_id() const { return steam_id; }
 
 void SteamPacketPeer::set_connection_handle(HSteamNetConnection p_handle) {
+	connection_handle = k_HSteamNetConnection_Invalid;
+	configured_lanes = 0;
+	int lanes = SteamProjectSettings::get_max_channels();
+	if (SteamAPI_ISteamNetworkingSockets_ConfigureConnectionLanes(
+			SteamAPI_SteamNetworkingSockets_SteamAPI(), p_handle, lanes, nullptr, nullptr) != k_EResultOK) {
+		SteamAPI_ISteamNetworkingSockets_CloseConnection(
+				SteamAPI_SteamNetworkingSockets_SteamAPI(), p_handle, 0,
+				"Unable to configure connection lanes.", false);
+		WARN_PRINT("A connection was abandoned because its lanes could not be configured.");
+		return;
+	}
 	connection_handle = p_handle;
-	SteamAPI_ISteamNetworkingSockets_ConfigureConnectionLanes(
-			SteamAPI_SteamNetworkingSockets_SteamAPI(), 
-			connection_handle, configured_lanes, nullptr, nullptr
-			);
+	configured_lanes = lanes;
 }
 
 HSteamNetConnection SteamPacketPeer::get_connection_handle() const {
@@ -85,7 +93,7 @@ SteamPacketPeer::PeerState SteamPacketPeer::get_state() const { return state; }
 Error SteamPacketPeer::send(int p_channel, const uint8_t *p_data, int p_size, int p_flags) {
 	ERR_FAIL_COND_V(state != STATE_CONNECTED, ERR_UNAVAILABLE);
 
-	ERR_FAIL_COND_V(p_data == nullptr || p_size <= 0, ERR_INVALID_PARAMETER);
+	ERR_FAIL_COND_V(p_data == nullptr || p_size <= 0 || p_size > k_cbMaxSteamNetworkingSocketsMessageSizeSend, ERR_INVALID_PARAMETER);
 
 	ERR_FAIL_COND_V_MSG(p_channel < 0 || p_channel >= configured_lanes, ERR_INVALID_PARAMETER,
 			vformat("Channel %d is outside the configured range (0-%d). Set the number of channels in Project Settings.",
@@ -102,9 +110,11 @@ Error SteamPacketPeer::send(int p_channel, const uint8_t *p_data, int p_size, in
 	memcpy(packet->m_pData, p_data, p_size);
 
 	SteamNetworkingMessage_t *messages[1] = {packet};
+	int64 result = 0;
 	SteamAPI_ISteamNetworkingSockets_SendMessages(
-			SteamAPI_SteamNetworkingSockets_SteamAPI(), 1, messages, nullptr, false
+			SteamAPI_SteamNetworkingSockets_SteamAPI(), 1, messages, &result, true
 			);
+	ERR_FAIL_COND_V(result <= 0, ERR_CONNECTION_ERROR);
 
 	return OK;
 }
@@ -125,9 +135,11 @@ Error SteamPacketPeer::ping(uint32_t p_peer_id) {
 	memcpy(packet->m_pData, (void *)&data, sizeof(PeerIDPacket));
 
 	SteamNetworkingMessage_t *messages[1] = {packet};
+	int64 result = 0;
 	SteamAPI_ISteamNetworkingSockets_SendMessages(
-			SteamAPI_SteamNetworkingSockets_SteamAPI(), 1, messages, nullptr, false
+			SteamAPI_SteamNetworkingSockets_SteamAPI(), 1, messages, &result, true
 			);
+	ERR_FAIL_COND_V(result <= 0, ERR_CONNECTION_ERROR);
 
 	return OK;
 }

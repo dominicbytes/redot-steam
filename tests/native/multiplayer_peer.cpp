@@ -247,6 +247,18 @@ static void lifecycle_case(const std::string &name) {
 		event.m_hConn = 71; event.m_info.m_eState = k_ESteamNetworkingConnectionState_ClosedByPeer;
 		other.network_connection_status_changed(&event); inactive.network_connection_status_changed(&event);
 		assert(closes[71] == 0 && owner.steam_connections[71] == peer);
+	} else if (name == "C2") {
+		SteamMultiplayerPeer network; network.connection_status = SteamMultiplayerPeer::CONNECTION_CONNECTED;
+		auto first = pending(network, 72), second = pending(network, 73);
+		network.peers[3] = first; network.peers[4] = second;
+		first->send_result = ERR_CONNECTION_ERROR;
+		const uint8_t byte = 1;
+		assert(network._put_packet(&byte, 1) == ERR_CONNECTION_ERROR);
+		assert(first->send_calls == 1 && second->send_calls == 1);
+		network.target_peer = -4;
+		assert(network._put_packet(&byte, 1) == ERR_CONNECTION_ERROR);
+		network.target_peer = 3;
+		assert(network._put_packet(&byte, 1) == ERR_CONNECTION_ERROR);
 	} else if (name == "C3") {
 		for (int id : {1, 3}) {
 			SteamMultiplayerPeer network;
@@ -306,7 +318,7 @@ static void lifecycle_case(const std::string &name) {
 }
 int main(int argc, char **argv) {
 	std::string selected = argc > 1 ? argv[1] : "all";
-	for (const char *name : {"C1", "C3", "C4", "C5", "C6"}) {
+	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6"}) {
 		if (selected == "all" || selected == name) { lifecycle_case(name); }
 	}
 	if (selected != "all") { std::cout << selected << "=PASS\n"; return 0; }

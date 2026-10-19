@@ -35,7 +35,7 @@ def method(source, signature):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-ref", help="Test production methods from a git revision")
-    parser.add_argument("--case", default="all", choices=['all', 'C1', 'C3', 'C4', 'C5', 'C6'])
+    parser.add_argument("--case", default="all", choices=['all', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6'])
     args = parser.parse_args()
     source = source_text("godotsteam/godotsteam_multiplayer_peer.cpp", args.source_ref)
     bodies = "\n".join(method(source, signature) for signature in (
@@ -49,6 +49,7 @@ def main():
         "Error SteamMultiplayerPeer::add_peer(",
         "void SteamMultiplayerPeer::_add_pending_peer(",
         "Error SteamMultiplayerPeer::create_client(",
+        "Error SteamMultiplayerPeer::_put_packet(",
     ))
     settings = source_text("godotsteam/godotsteam_project_settings.cpp", args.source_ref)
     bodies += "\n" + method(settings, "int SteamProjectSettings::get_max_queued_packets()")

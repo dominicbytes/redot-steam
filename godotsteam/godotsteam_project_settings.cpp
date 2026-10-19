@@ -87,6 +87,11 @@ void SteamProjectSettings::register_settings() {
 	if (!ProjectSettings::get_singleton()->has_setting("steam/multiplayer_peer/max_channels")) {
 		ProjectSettings::get_singleton()->set("steam/multiplayer_peer/max_channels", 4);
 	}
+	property_info["name"] = "steam/multiplayer_peer/max_channels";
+	property_info["type"] = Variant::INT;
+	property_info["hint"] = PROPERTY_HINT_RANGE;
+	property_info["hint_string"] = "1,255,1";
+	ProjectSettings::get_singleton()->add_property_info(property_info);
 	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/max_channels", true);
 	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/max_channels", true);
 
@@ -162,7 +167,11 @@ int SteamProjectSettings::get_id_in_use() {
 
 
 int SteamProjectSettings::get_max_channels() {
-	return ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/max_channels");
+	int64_t channels = ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/max_channels");
+	if (channels > 255) {
+		return 255;
+	}
+	return channels > 0 ? (int)channels : 1;
 }
 
 

@@ -477,10 +477,14 @@ Error SteamMultiplayerPeer::_put_packet(const uint8_t *p_buffer, int p_buffer_si
 			vformat("Invalid target peer: %d", target_peer)
 			);
 
+	Error result = OK;
 	if (target_peer == 0) {
 		// Send to all peers
 		for (KeyValue<uint32_t, Ref<SteamPacketPeer>> &E : peers) {
-			E.value->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
+			Error sent = E.value->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
+			if (result == OK && sent != OK) {
+				result = sent;
+			}
 		}
 	} else if (peers.has(target_peer)) {
 		// Send to specific peer
@@ -488,17 +492,20 @@ Error SteamMultiplayerPeer::_put_packet(const uint8_t *p_buffer, int p_buffer_si
 		return peer->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
 	} else if (target_peer < 0) {
 		// We're in weird exclusion territory
-		int exclude = Math::abs(target_peer);
+		uint32_t exclude = Math::abs(target_peer);
 		for (KeyValue<uint32_t, Ref<SteamPacketPeer>> &E : peers) {
 			// GCC complains of different signedness: const unsigned int and int at 428
 			if (E.key == exclude) {
 				continue;
 			}
-			E.value->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
+			Error sent = E.value->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
+			if (result == OK && sent != OK) {
+				result = sent;
+			}
 		}
 	}
 
-	return OK;
+	return result;
 }
 
 int SteamMultiplayerPeer::_get_max_packet_size() const {
@@ -604,6 +611,9 @@ void SteamMultiplayerPeer::_add_pending_peer(
 	Ref<SteamPacketPeer> peer = memnew(SteamPacketPeer);
 	peer->set_steam_id(p_steam_id);
 	peer->set_connection_handle(p_connection_handle);
+	if (peer->get_connection_handle() == k_HSteamNetConnection_Invalid) {
+		return;
+	}
 	peer->set_state(p_peer_state);
 
 	steam_connections[p_connection_handle] = peer;

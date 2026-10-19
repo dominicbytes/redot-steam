@@ -68,7 +68,7 @@ private:
 	uint64_t steam_id = 0;
 	HSteamNetConnection connection_handle = k_HSteamNetConnection_Invalid;
 	uint32_t peer_id = 0;
-	int configured_lanes = 1;
+	int configured_lanes = 0;
 
 	List<SteamNetworkingMessage_t *> packet_queue;
 	SteamNetworkingMessage_t *last_packet = nullptr;
