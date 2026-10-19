@@ -7368,6 +7368,9 @@ void Steam::equipped_profile_items_changed(EquippedProfileItemsChanged_t *call_d
 void Steam::html_browser_restarted(HTML_BrowserRestarted_t *call_data) {
 	uint32_t browser_handle = call_data->unBrowserHandle;
 	uint32_t old_browser_handle = call_data->unOldBrowserHandle;
+	if (current_browser_handle == old_browser_handle) {
+		current_browser_handle = browser_handle;
+	}
 	emit_signal("html_browser_restarted", browser_handle, old_browser_handle);
 }
 
