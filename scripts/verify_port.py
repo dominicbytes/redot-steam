@@ -26,7 +26,20 @@ def main() -> int:
     require(inventory["classes"]["Steam"]["upstream"]["counts"]["methods"] >= 700, "Steam method inventory is unexpectedly incomplete")
     require(inventory["classes"]["Steam"]["upstream"]["counts"]["signals"] >= 180, "Steam signal inventory is unexpectedly incomplete")
     require(set(inventory["classes"]) == {"Steam", "SteamMultiplayerPeer", "SteamPacketPeer"}, "Native class inventory mismatch")
-    require(inventory["parity_exact"], "RedotSteam API/documentation/manifest differs from the frozen upstream oracle")
+    # These additions are deliberate fixes; every other upstream difference fails the check.
+    additions = {
+        "methods": ["fileLoadDialogResponse"],
+        "signals": [],
+        "constants": [],
+        "properties": [],
+    }
+    for name, entry in inventory["classes"].items():
+        for surface in ("bindings", "documented"):
+            for kind, difference in entry["parity"][surface].items():
+                expected = additions[kind] if name == "Steam" else []
+                require(difference == {"missing": [], "added": expected},
+                        f"Unexpected upstream difference: {name}.{surface}.{kind}")
+    require(inventory["platform_manifest"]["exact"], "Platform manifest differs from upstream")
 
     plugin = configparser.ConfigParser()
     plugin.read(ROOT / "plugin/plugin.cfg", encoding="utf-8")
