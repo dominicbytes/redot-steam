@@ -44,3 +44,16 @@ Port status for Redot 26.2.
 - Next steps: Beta private-app suite, then clean-runner RC reproducibility and GitHub publication
 
 The tracked upstream README is preserved unchanged as `UPSTREAM_README.md`. Port-specific status lives here.
+
+## Channel bounds divergence
+
+`SteamPacketPeer::send()` accepts every channel in `0 <= channel < max_channels`,
+including channel 3 with the default four lanes. Negative channels and channels
+at or above the configured lane count now report an error and return
+`ERR_INVALID_PARAMETER` before allocating or sending a message. Invalid channels
+are no longer silently redirected to lane 0.
+
+Offline native regressions: `python tests/native/test_lane_bounds.py` from a C++
+compiler environment. These compile the production send method with transport
+doubles and verify all valid lanes plus lower and upper invalid boundaries for
+one, four, and eight lanes. They do not initialize Steam or verify live transport.
