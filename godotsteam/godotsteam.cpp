@@ -3642,26 +3642,44 @@ Dictionary Steam::createSocketPair(bool loopback, uint64_t remote_steam_id1, uin
 PackedInt64Array Steam::sendMessages(uint32_t connection_handle, Array messages, int flags, bool delete_failed_messages) {
 	PackedInt64Array message_results;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, message_results, "Networking Sockets class not found, Steam may not be initialized: sendMessages");
+	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, message_results, "Networking Utils class not found, Steam may not be initialized: sendMessages");
+	ERR_FAIL_COND_V_MSG(messages.size() > INT32_MAX, message_results, "Too many messages: sendMessages");
+	int total_messages = (int)messages.size();
+	if (total_messages == 0) {
+		return message_results;
+	}
+	for (int i = 0; i < total_messages; i++) {
+		ERR_FAIL_COND_V_MSG(messages[i].get_type() != Variant::PACKED_BYTE_ARRAY, message_results, "Messages must be PackedByteArray values: sendMessages");
+		PackedByteArray payload = messages[i];
+		ERR_FAIL_COND_V_MSG(payload.size() > k_cbMaxSteamNetworkingSocketsMessageSizeSend, message_results, "Message exceeds maximum send size: sendMessages");
+	}
 
-	size_t total_messages = messages.size();
-	SteamNetworkingMessage_t **sent_messages = new SteamNetworkingMessage_t *[total_messages];
-	for (size_t i = 0; i < total_messages; i++) {
-		SteamNetworkingMessage_t *message = SteamAPI_ISteamNetworkingUtils_AllocateMessage(SteamAPI_SteamNetworkingUtils_SteamAPI(), sizeof(messages[i]));
-		message->m_pData = messages[i];
+	std::vector<SteamNetworkingMessage_t *> sent_messages(total_messages, nullptr);
+	std::vector<int64> messages_output(total_messages);
+	for (int i = 0; i < total_messages; i++) {
+		PackedByteArray payload = messages[i];
+		SteamNetworkingMessage_t *message = SteamAPI_ISteamNetworkingUtils_AllocateMessage(SteamAPI_SteamNetworkingUtils_SteamAPI(), (int)payload.size());
+		if (message == nullptr) {
+			for (int j = 0; j < i; j++) {
+				SteamAPI_SteamNetworkingMessage_t_Release(sent_messages[j]);
+			}
+			ERR_FAIL_V_MSG(message_results, "Failed to allocate message: sendMessages");
+		}
+		if (payload.size() > 0) {
+			memcpy(message->m_pData, payload.ptr(), payload.size());
+		}
 		message->m_conn = (HSteamNetConnection)connection_handle;
 		message->m_nFlags = flags;
-
 		sent_messages[i] = message;
-		SteamAPI_SteamNetworkingMessage_t_Release(message);
 	}
 
-	int64 *messages_output = new int64[total_messages];
-	SteamAPI_ISteamNetworkingSockets_SendMessages(SteamAPI_SteamNetworkingSockets_SteamAPI(), total_messages, sent_messages, messages_output, delete_failed_messages);
-
-	for (size_t i = 0; i < total_messages; i++) {
+	SteamAPI_ISteamNetworkingSockets_SendMessages(SteamAPI_SteamNetworkingSockets_SteamAPI(), total_messages, sent_messages.data(), messages_output.data(), delete_failed_messages);
+	for (int i = 0; i < total_messages; i++) {
+		if (!delete_failed_messages && sent_messages[i] != nullptr) {
+			SteamAPI_SteamNetworkingMessage_t_Release(sent_messages[i]);
+		}
 		message_results.append((int64_t)messages_output[i]);
 	}
-	delete[] messages_output;
 	return message_results;
 }
 
