@@ -24,6 +24,6 @@ if ($BuildImage) {
 }
 
 $mount = "${projectRoot}:/src"
-$command = "chmod +x '$RedotBinary' && LD_LIBRARY_PATH=/src/tests/fixture/addons/godotsteam/linux64 '$RedotBinary' --headless --path tests/fixture --quit-after 20"
-& $DockerPath run --rm --platform linux/amd64 --volume $mount --workdir /src $Image bash -lc $command
+$command = "chmod +x '$RedotBinary' && timeout 45s env LD_LIBRARY_PATH=/src/tests/fixture/addons/godotsteam/linux64 '$RedotBinary' --headless --audio-driver Dummy --path tests/fixture --quit-after 20"
+python (Join-Path $PSScriptRoot "run_fixture.py") --marker REDOTSTEAM_FIXTURE -- $DockerPath run --rm --platform linux/amd64 --volume $mount --workdir /src $Image bash -lc $command
 if ($LASTEXITCODE -ne 0) { throw "Linux x86_64 native fixture failed with exit code $LASTEXITCODE." }
