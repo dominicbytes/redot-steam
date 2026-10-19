@@ -118,10 +118,15 @@ bool SteamMultiplayerPeer::_is_server_relay_supported() const {
 }
 
 void SteamMultiplayerPeer::_poll() {
+	int remaining = SteamProjectSettings::get_max_queued_packets() - incoming_packets.size();
+	if (remaining <= 0) {
+		return;
+	}
+	int receive_count = remaining < MAX_MESSAGE_COUNT ? remaining : MAX_MESSAGE_COUNT;
 	SteamNetworkingMessage_t *messages[MAX_MESSAGE_COUNT];
 	int number_messages = SteamAPI_ISteamNetworkingSockets_ReceiveMessagesOnPollGroup(
 			SteamAPI_SteamNetworkingSockets_SteamAPI(),
-			poll_group, messages, MAX_MESSAGE_COUNT
+			poll_group, messages, receive_count
 			);
 	if (number_messages == 0) {
 		return;

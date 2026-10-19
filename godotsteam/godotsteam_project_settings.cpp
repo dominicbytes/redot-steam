@@ -90,6 +90,17 @@ void SteamProjectSettings::register_settings() {
 	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/max_channels", true);
 	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/max_channels", true);
 
+	if (!ProjectSettings::get_singleton()->has_setting("steam/multiplayer_peer/max_queued_packets")) {
+		ProjectSettings::get_singleton()->set("steam/multiplayer_peer/max_queued_packets", 256);
+	}
+	property_info["name"] = "steam/multiplayer_peer/max_queued_packets";
+	property_info["type"] = Variant::INT;
+	property_info["hint"] = PROPERTY_HINT_RANGE;
+	property_info["hint_string"] = "1,2147483647,1";
+	ProjectSettings::get_singleton()->add_property_info(property_info);
+	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/max_queued_packets", 256);
+	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/max_queued_packets", true);
+
 	// Port in any pre-GodotSteam v4.20 settings
 	if (ProjectSettings::get_singleton()->has_setting("steam/initialization/app_id")) {
 		WARN_PRINT_ONCE("Found older app ID project setting, converting it");
@@ -152,6 +163,15 @@ int SteamProjectSettings::get_id_in_use() {
 
 int SteamProjectSettings::get_max_channels() {
 	return ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/max_channels");
+}
+
+
+int SteamProjectSettings::get_max_queued_packets() {
+	int64_t limit = ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/max_queued_packets");
+	if (limit > INT32_MAX) {
+		return INT32_MAX;
+	}
+	return limit > 0 ? (int)limit : 1;
 }
 
 
