@@ -4,7 +4,7 @@ extends EditorPlugin
 
 const EDITOR_PANEL = preload("uid://cyniebd6yahu5")
 
-static var dock_frame
+static var dock_frame: Control
 
 var link_changelog: String = "[url=https://godotsteam.com/changelog/gdextension/]upstream changelog[/url]"
 var link_website: String = "[url=https://github.com/dominicbytes/redot-steam]RedotSteam[/url]"
@@ -25,7 +25,12 @@ func _disable_plugin() -> void:
 
 
 func _enter_tree() -> void:
-	print_rich("RedotSteam (GodotSteam API v%s) | %s | %s" % [Steam.get_godotsteam_version(), link_website, link_changelog])
+	if not ClassDB.class_exists("Steam") or not Engine.has_singleton("Steam"):
+		return
+	var steam: Object = Engine.get_singleton("Steam")
+	if not is_instance_valid(steam) or not steam.has_method("get_godotsteam_version"):
+		return
+	print_rich("RedotSteam (GodotSteam API v%s) | %s | %s" % [steam.call("get_godotsteam_version"), link_website, link_changelog])
 	add_project_settings()
 	add_steamworks_dock()
 
@@ -34,8 +39,8 @@ func _exit_tree() -> void:
 	remove_steamworks_dock()
 
 
-func _make_visible(visible) -> void:
-	if steamworks_dock:
+func _make_visible(visible: bool) -> void:
+	if is_instance_valid(steamworks_dock):
 		steamworks_dock.set_visible(visible)
 
 
@@ -65,8 +70,9 @@ func remove_steamworks_dock() -> void:
 	# This will be used when 4.4.x is deprecated
 	#remove_control_from_docks(steamworks_dock)
 	# This is deprecated as of 4.6; when it is removed then 4.4.x will be deprecated for GodotSteam
-	remove_control_from_bottom_panel(steamworks_dock)
-	steamworks_dock.queue_free()
+	if is_instance_valid(steamworks_dock):
+		remove_control_from_bottom_panel(steamworks_dock)
+		steamworks_dock.queue_free()
 	steamworks_dock = null
 	dock_frame = null
 #endregion
