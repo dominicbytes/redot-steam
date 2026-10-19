@@ -8,10 +8,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$source = Join-Path $projectRoot $BuildRoot
-if (-not (Test-Path -LiteralPath $source -PathType Container)) { throw "Build output not found: $source" }
+$source = if ([System.IO.Path]::IsPathRooted($BuildRoot)) { $BuildRoot } else { Join-Path $projectRoot $BuildRoot }
+if (-not (Test-Path -LiteralPath $source -PathType Container)) { throw "Build output directory not found" }
 
-$output = Join-Path $projectRoot $OutputDirectory
+$source = [System.IO.Path]::GetFullPath((Resolve-Path -LiteralPath $source).ProviderPath).TrimEnd("/", "\")
+$output = if ([System.IO.Path]::IsPathRooted($OutputDirectory)) { $OutputDirectory } else { Join-Path $projectRoot $OutputDirectory }
 $packageRoot = Join-Path $projectRoot ".work/package"
 $staging = Join-Path $packageRoot "addons/godotsteam"
 if (Test-Path -LiteralPath $packageRoot) {

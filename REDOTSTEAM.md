@@ -12,19 +12,29 @@ Windows x86-64 debug and release DLLs are tested on official 26.2 and 26.3 and a
 
 To inspect another engine's API, set `REDOT_BIN` and run `scripts/capture_redot_api.ps1 -OutputDirectory <scratch>`. Dumps go to scratch by default, and a 26.3 dump is rejected if directed at the pinned 26.2 snapshot. `scripts/verify_source_lock.ps1 -RedotBin <REDOT_BIN> -SdkPath <SDK>` recognizes both official Windows engine identities while checking the unchanged binding inputs.
 
-## Required user-supplied dependencies
+## Binary package installation
+
+Extract the addon ZIP into your project so it contains `addons/godotsteam/`. Supply Steamworks SDK 1.65 separately and run the shipped helper from the project root:
+
+```powershell
+./addons/godotsteam/tools/provision_steam_runtime.ps1 -SdkPath <SDK> -AddonPath addons/godotsteam -Target windows-x86_64
+```
+
+Choose `linux-x86_64` or `linux-arm64` for the corresponding Linux runtime. Enable RedotSteam in Project Settings > Plugins and restart the editor after import. The package does not require a compiler, SCons, or a godot-cpp checkout.
+
+## Source checkout dependencies
 
 - Redot 26.2 LTS or Redot 26.3 stable (Windows x86-64 verified).
 - Steamworks SDK 1.65 supplied by the plugin user.
 - `godot-cpp` commit `6388e26dd8a42071f65f764a3ef3d9523dda3d6e`.
 - SCons 4.x and a supported C++ compiler.
 
-Valve SDK headers, import libraries, and redistributable runtime libraries are deliberately excluded from this repository and from release archives. Place the SDK at `godotsteam/sdk/` or pass `steam_sdk_path=<path>` when building. After installing a RedotSteam package, use `scripts/provision_steam_runtime.ps1` to copy the appropriate runtime from your own SDK into `addons/godotsteam/`.
+Valve SDK headers, import libraries, and redistributable runtime libraries are deliberately excluded from this repository and from release archives. Place the SDK at `godotsteam/sdk/` or pass `steam_sdk_path=<path>` when building. For binary-package setup, use the shipped helper shown above. The following build and verification commands require a source checkout.
 
 ## Windows build
 
 ```powershell
-./scripts/build_windows.ps1 -Target template_debug -SdkPath "C:/path/to/sdk" -TargetPath bin
+./scripts/build_windows.ps1 -Target template_debug -SdkPath <SDK> -TargetPath bin
 ```
 
 Add `-IncludeSteamRuntime` only for local runtime verification. Public packages must leave it disabled.
@@ -32,16 +42,16 @@ Add `-IncludeSteamRuntime` only for local runtime verification. Public packages 
 ## Linux build
 
 ```bash
-STEAMWORKS_SDK_PATH=/path/to/sdk ARCH=x86_64 TARGET=template_debug ./scripts/build_linux.sh
-STEAMWORKS_SDK_PATH=/path/to/sdk ARCH=arm64 TARGET=template_release ./scripts/build_linux.sh
+STEAMWORKS_SDK_PATH=<SDK> ARCH=x86_64 TARGET=template_debug ./scripts/build_linux.sh
+STEAMWORKS_SDK_PATH=<SDK> ARCH=arm64 TARGET=template_release ./scripts/build_linux.sh
 ```
 
 Windows release operators can produce the same Linux targets with a verified portable Zig installation:
 
 ```powershell
-$env:REDOTSTEAM_PYTHON = "C:\path\to\python.exe"
-.\scripts\build_linux_cross.ps1 -Architecture x86_64 -Target template_release -ZigPath C:\path\to\zig.exe -SdkPath C:\private\steamworks-sdk
-.\scripts\build_linux_cross.ps1 -Architecture arm64 -Target template_release -ZigPath C:\path\to\zig.exe -SdkPath C:\private\steamworks-sdk
+$env:REDOTSTEAM_PYTHON = "<PYTHON>"
+.\scripts\build_linux_cross.ps1 -Architecture x86_64 -Target template_release -ZigPath <ZIG> -SdkPath <SDK>
+.\scripts\build_linux_cross.ps1 -Architecture arm64 -Target template_release -ZigPath <ZIG> -SdkPath <SDK>
 ```
 
 The cross-build defaults to glibc 2.27. This toolchain consumes SDK inputs for compilation and linking only; it does not add Steamworks redistributables unless `-IncludeSteamRuntime` is explicitly used for a private fixture.
@@ -61,7 +71,7 @@ The GNU path is the release default. Zig remains a portability fallback until it
 ```powershell
 python scripts/generate_parity_inventory.py --check
 python scripts/verify_port.py
-./scripts/verify_source_lock.ps1 -SdkPath "C:/path/to/sdk"
+./scripts/verify_source_lock.ps1 -SdkPath <SDK>
 ```
 
 The authoritative upstream source is [GodotSteam on Codeberg](https://codeberg.org/godotsteam/godotsteam). The original upstream README is preserved as `UPSTREAM_README.md`, and its MIT license is retained.
