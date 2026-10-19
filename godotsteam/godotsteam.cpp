@@ -4623,28 +4623,8 @@ void Steam::onReservationCompleted(uint64_t beacon_id, uint64_t steam_id) {
 // hot_x - The X coordinate of the cursor hot spot in pixels, offset from the left of the cursor
 // hot_y - The Y coordinate of the cursor hot spot in pixels, offset from the top of the cursor
 // pitch - The distance between pixel rows in bytes, defaults to nWidth * 4
-Dictionary Steam::createMouseCursor(int width, int height, int hot_x, int hot_y, int pitch) {
-	Dictionary mouse_cursor;
-	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemotePlay() == nullptr, mouse_cursor, "Remote Play class not found, Steam may not be initialized: createMouseCursor");
-	const void *cursor_pixels = nullptr;
-	uint32_t mouse_cursor_id = SteamAPI_ISteamRemotePlay_CreateMouseCursor(SteamAPI_SteamRemotePlay(), width, height, hot_x, hot_y, &cursor_pixels, pitch);
-	mouse_cursor["id"] = mouse_cursor_id;
-
-	unsigned int pixel_count = width * height;
-	PackedByteArray rgba_data;
-	rgba_data.resize(pixel_count * 4);
-	const uint8_t *bgra = (const uint8_t *)cursor_pixels;
-	uint8_t *rgba = rgba_data.ptrw();
-
-	// Loop to swap B and R channels for the image
-	for (unsigned int i = 0; i < pixel_count; i++) {
-		rgba[i * 4 + 0] = bgra[i * 4 + 2]; // R = B
-		rgba[i * 4 + 1] = bgra[i * 4 + 1]; // G = G
-		rgba[i * 4 + 2] = bgra[i * 4 + 0]; // B = R
-		rgba[i * 4 + 3] = bgra[i * 4 + 3]; // A = A
-	}
-	mouse_cursor["cursor_pixels"] = rgba_data;
-	return mouse_cursor;
+Dictionary Steam::createMouseCursor(int, int, int, int, int) {
+	ERR_FAIL_V_MSG(Dictionary(), "Cursor pixel input is required but unsupported: createMouseCursor");
 }
 
 // Make mouse and keyboard input for Remote Play Together sessions available via GetInput() instead of being merged with
@@ -4668,8 +4648,18 @@ Array Steam::getInput(uint32_t max_events) {
 	Array remote_inputs;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemotePlay() == nullptr, remote_inputs, "Remote Play class not found, Steam may not be initialized: getInput");
 
-	RemotePlayInput_t *these_remote_inputs = nullptr;
-	uint32_t returned_inputs = SteamAPI_ISteamRemotePlay_GetInput(SteamAPI_SteamRemotePlay(), these_remote_inputs, max_events);
+	if (max_events == 0) {
+		return remote_inputs;
+	}
+	uint32_t available_inputs = SteamAPI_ISteamRemotePlay_GetInput(SteamAPI_SteamRemotePlay(), nullptr, 0);
+	uint32_t input_count = max_events < available_inputs ? max_events : available_inputs;
+	if (input_count == 0) {
+		return remote_inputs;
+	}
+	ERR_FAIL_COND_V_MSG(input_count > INT32_MAX / sizeof(RemotePlayInput_t), remote_inputs, "Input event count exceeds maximum buffer size: getInput");
+	std::vector<RemotePlayInput_t> these_remote_inputs(input_count);
+	uint32_t returned_inputs = SteamAPI_ISteamRemotePlay_GetInput(SteamAPI_SteamRemotePlay(), these_remote_inputs.data(), input_count);
+	ERR_FAIL_COND_V_MSG(returned_inputs > input_count, remote_inputs, "Input event count exceeds buffer capacity: getInput");
 	for (uint32_t i = 0; i < returned_inputs; i++) {
 		Dictionary new_event;
 		new_event["session_id"] = these_remote_inputs[i].m_unSessionID;
