@@ -3818,11 +3818,15 @@ Dictionary Steam::getConnectionInfo(uint32_t connection_handle) {
 Dictionary Steam::getDetailedConnectionStatus(uint32_t connection) {
 	Dictionary connection_status;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, connection_status, "Networking Sockets class not found, Steam may not be initialized: getDetailedConnectionStatus");
-	char buffer[STEAM_LARGE_BUFFER_SIZE];
-	int success = SteamAPI_ISteamNetworkingSockets_GetDetailedConnectionStatus(SteamAPI_SteamNetworkingSockets_SteamAPI(), (HSteamNetConnection)connection, buffer, STEAM_LARGE_BUFFER_SIZE);
-
+	PackedByteArray buffer;
+	ERR_FAIL_COND_V_MSG(buffer.resize(STEAM_LARGE_BUFFER_SIZE) != OK, connection_status, "Failed to allocate status buffer: getDetailedConnectionStatus");
+	int success = SteamAPI_ISteamNetworkingSockets_GetDetailedConnectionStatus(SteamAPI_SteamNetworkingSockets_SteamAPI(), (HSteamNetConnection)connection, (char *)buffer.ptrw(), (int)buffer.size());
+	if (success > 0) {
+		ERR_FAIL_COND_V_MSG(buffer.resize(success) != OK, connection_status, "Failed to allocate status buffer: getDetailedConnectionStatus");
+		success = SteamAPI_ISteamNetworkingSockets_GetDetailedConnectionStatus(SteamAPI_SteamNetworkingSockets_SteamAPI(), (HSteamNetConnection)connection, (char *)buffer.ptrw(), (int)buffer.size());
+	}
 	connection_status["success"] = success;
-	connection_status["status"] = buffer;
+	connection_status["status"] = success == 0 ? String((const char *)buffer.ptr()) : String();
 	return connection_status;
 }
 
@@ -3861,7 +3865,9 @@ String Steam::getListenSocketAddress(uint32_t socket, bool with_port) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, socket_address, "Networking Sockets class not found, Steam may not be initialized: getListenSocketAddress");
 	SteamNetworkingIPAddr address;
 	if (SteamAPI_ISteamNetworkingSockets_GetListenSocketAddress(SteamAPI_SteamNetworkingSockets_SteamAPI(), (HSteamListenSocket)socket, &address)) {
-		socket_address = getStringFromSteamIP(address);
+		char buffer[SteamNetworkingIPAddr::k_cchMaxString]{};
+		SteamAPI_SteamNetworkingIPAddr_ToString(&address, buffer, sizeof(buffer), with_port);
+		socket_address = buffer;
 	}
 	return socket_address;
 }
@@ -4026,7 +4032,7 @@ Dictionary Steam::getCertificateRequest() {
 	PackedByteArray certificate;
 	certificate.resize(512);
 	int cert_size = certificate.size();
-	SteamNetworkingErrMsg error_message;
+	SteamNetworkingErrMsg error_message{};
 	if (SteamAPI_ISteamNetworkingSockets_GetCertificateRequest(SteamAPI_SteamNetworkingSockets_SteamAPI(), &cert_size, certificate.ptrw(), error_message)) {
 		certificate.resize(cert_size);
 		cert_information["certificate"] = certificate;
@@ -4039,13 +4045,11 @@ Dictionary Steam::getCertificateRequest() {
 Dictionary Steam::setCertificate(const PackedByteArray &certificate) {
 	Dictionary certificate_data;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, certificate_data, "Networking Sockets class not found, Steam may not be initialized: setCertificate");
-	bool success = false;
-	SteamNetworkingErrMsg error_message;
-
-	if (SteamAPI_ISteamNetworkingSockets_SetCertificate(SteamAPI_SteamNetworkingSockets_SteamAPI(), (void *)certificate.ptr(), certificate.size(), error_message)) {
-		certificate_data["response"] = success;
-		certificate_data["error"] = error_message;
-	}
+	ERR_FAIL_COND_V_MSG(certificate.size() > INT32_MAX, certificate_data, "Certificate exceeds maximum size: setCertificate");
+	SteamNetworkingErrMsg error_message{};
+	bool success = SteamAPI_ISteamNetworkingSockets_SetCertificate(SteamAPI_SteamNetworkingSockets_SteamAPI(), certificate.ptr(), (int)certificate.size(), error_message);
+	certificate_data["response"] = success;
+	certificate_data["error"] = error_message;
 	return certificate_data;
 }
 
@@ -4193,15 +4197,11 @@ int Steam::estimatePingTimeBetweenTwoLocations(PackedByteArray location1, Packed
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, 0, "Networking Utils class not found, Steam may not be initialized: estimatePingTimeBetweenTwoLocations");
 	SteamNetworkPingLocation_t ping_location1;
 	SteamNetworkPingLocation_t ping_location2;
-	uint8_t *input_location_1 = (uint8_t *)location1.ptr();
-	for (int j = 0; j < 512; j++) {
-		ping_location1.m_data[j] = input_location_1[j];
-	}
+	ERR_FAIL_COND_V_MSG(location1.size() != (int64_t)sizeof(ping_location1.m_data), -1, "Invalid ping location size: estimatePingTimeBetweenTwoLocations");
+	memcpy(ping_location1.m_data, location1.ptr(), sizeof(ping_location1.m_data));
 
-	uint8_t *input_location_2 = (uint8_t *)location2.ptr();
-	for (int j = 0; j < 512; j++) {
-		ping_location2.m_data[j] = (uint8_t)input_location_2[j];
-	}
+	ERR_FAIL_COND_V_MSG(location2.size() != (int64_t)sizeof(ping_location2.m_data), -1, "Invalid ping location size: estimatePingTimeBetweenTwoLocations");
+	memcpy(ping_location2.m_data, location2.ptr(), sizeof(ping_location2.m_data));
 	return SteamAPI_ISteamNetworkingUtils_EstimatePingTimeBetweenTwoLocations(SteamAPI_SteamNetworkingUtils_SteamAPI(), ping_location1, ping_location2);
 }
 
@@ -4210,10 +4210,8 @@ int Steam::estimatePingTimeBetweenTwoLocations(PackedByteArray location1, Packed
 int Steam::estimatePingTimeFromLocalHost(PackedByteArray location) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, 0, "Networking Utils class not found, Steam may not be initialized: estimatePingTimeFromLocalHost");
 	SteamNetworkPingLocation_t ping_location;
-	uint8_t *input_location = (uint8_t *)location.ptr();
-	for (int j = 0; j < 512; j++) {
-		ping_location.m_data[j] = input_location[j];
-	}
+	ERR_FAIL_COND_V_MSG(location.size() != (int64_t)sizeof(ping_location.m_data), -1, "Invalid ping location size: estimatePingTimeFromLocalHost");
+	memcpy(ping_location.m_data, location.ptr(), sizeof(ping_location.m_data));
 	return SteamAPI_ISteamNetworkingUtils_EstimatePingTimeFromLocalHost(SteamAPI_SteamNetworkingUtils_SteamAPI(), ping_location);
 }
 
@@ -4224,13 +4222,11 @@ String Steam::convertPingLocationToString(PackedByteArray location) {
 	String location_string = "";
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, location_string, "Networking Utils class not found, Steam may not be initialized: convertPingLocationToString");
 	SteamNetworkPingLocation_t ping_location;
-	uint8_t *input_location = (uint8_t *)location.ptr();
-	for (int j = 0; j < 512; j++) {
-		ping_location.m_data[j] = input_location[j];
-	}
+	ERR_FAIL_COND_V_MSG(location.size() != (int64_t)sizeof(ping_location.m_data), location_string, "Invalid ping location size: convertPingLocationToString");
+	memcpy(ping_location.m_data, location.ptr(), sizeof(ping_location.m_data));
 
-	char buffer[512 + 1]{};
-	SteamAPI_ISteamNetworkingUtils_ConvertPingLocationToString(SteamAPI_SteamNetworkingUtils_SteamAPI(), ping_location, buffer, k_cchMaxSteamNetworkingPingLocationString);
+	char buffer[k_cchMaxSteamNetworkingPingLocationString]{};
+	SteamAPI_ISteamNetworkingUtils_ConvertPingLocationToString(SteamAPI_SteamNetworkingUtils_SteamAPI(), ping_location, buffer, sizeof(buffer));
 	location_string += buffer;
 	return location_string;
 }
@@ -4321,11 +4317,21 @@ Array Steam::getPOPList() {
 Dictionary Steam::getConfigValue(NetworkingConfigValue config_value, NetworkingConfigScope scope_type, uint32_t connection_handle) {
 	Dictionary config_info;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, config_info, "Networking Utils class not found, Steam may not be initialized: getConfigValue");
-	ESteamNetworkingConfigDataType data_type;
-	size_t buffer_size;
+	ESteamNetworkingConfigDataType data_type = (ESteamNetworkingConfigDataType)0;
+	size_t buffer_size = 0;
 	PackedByteArray config_result;
-	NetworkingGetConfigValueResult result = (NetworkingGetConfigValueResult)SteamAPI_ISteamNetworkingUtils_GetConfigValue(SteamAPI_SteamNetworkingUtils_SteamAPI(), (ESteamNetworkingConfigValue)config_value, (ESteamNetworkingConfigScope)scope_type, connection_handle, &data_type, &config_result, &buffer_size);
-
+	NetworkingGetConfigValueResult result = (NetworkingGetConfigValueResult)SteamAPI_ISteamNetworkingUtils_GetConfigValue(SteamAPI_SteamNetworkingUtils_SteamAPI(), (ESteamNetworkingConfigValue)config_value, (ESteamNetworkingConfigScope)scope_type, connection_handle, &data_type, nullptr, &buffer_size);
+	if (result == NETWORKING_GET_CONFIG_VALUE_BUFFER_TOO_SMALL) {
+		ERR_FAIL_COND_V_MSG(buffer_size > INT64_MAX, config_info, "Configuration value exceeds maximum buffer size: getConfigValue");
+		ERR_FAIL_COND_V_MSG(config_result.resize((int64_t)buffer_size) != OK, config_info, "Failed to allocate configuration buffer: getConfigValue");
+		result = (NetworkingGetConfigValueResult)SteamAPI_ISteamNetworkingUtils_GetConfigValue(SteamAPI_SteamNetworkingUtils_SteamAPI(), (ESteamNetworkingConfigValue)config_value, (ESteamNetworkingConfigScope)scope_type, connection_handle, &data_type, config_result.ptrw(), &buffer_size);
+		if ((result == NETWORKING_GET_CONFIG_VALUE_OK || result == NETWORKING_GET_CONFIG_VALUE_OK_INHERITED) && buffer_size <= (size_t)config_result.size()) {
+			config_result.resize((int64_t)buffer_size);
+		}
+		else {
+			config_result.clear();
+		}
+	}
 	config_info["result"] = result;
 	config_info["type"] = data_type;
 	config_info["value"] = config_result;
