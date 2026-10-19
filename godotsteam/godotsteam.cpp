@@ -4888,22 +4888,18 @@ void Steam::fileShare(const String &file) {
 // Write to given file from Steam Cloud.
 bool Steam::fileWrite(const String &file, PackedByteArray data, int32_t size) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemoteStorage() == nullptr, false, "Remote Storage class not found, Steam may not be initialized: fileWrite");
-	int32_t data_size = data.size();
-	if (size > 0) {
-		data_size = size;
-	}
-	return SteamAPI_ISteamRemoteStorage_FileWrite(SteamAPI_SteamRemoteStorage(), file.utf8().get_data(), data.ptr(), data_size);
+	int64_t data_size = size == 0 ? data.size() : size;
+	ERR_FAIL_COND_V_MSG(data_size < 0 || data_size > data.size() || data_size > INT32_MAX, false, "Invalid file write size: fileWrite");
+	return SteamAPI_ISteamRemoteStorage_FileWrite(SteamAPI_SteamRemoteStorage(), file.utf8().get_data(), data.ptr(), (int32_t)data_size);
 }
 
 // Creates a new file and asynchronously writes the raw byte data to the Steam Cloud, and then closes the file. If the
 // target file already exists, it is overwritten.
 void Steam::fileWriteAsync(const String &file, PackedByteArray data, int32_t size) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamRemoteStorage() == nullptr, "Remote Storage class not found, Steam may not be initialized: fileWriteAsync");
-	int32_t data_size = data.size();
-	if (size > 0) {
-		data_size = size;
-	}
-	SteamAPICall_t api_call = SteamAPI_ISteamRemoteStorage_FileWriteAsync(SteamAPI_SteamRemoteStorage(), file.utf8().get_data(), data.ptr(), data_size);
+	int64_t data_size = size == 0 ? data.size() : size;
+	ERR_FAIL_COND_MSG(data_size < 0 || data_size > data.size() || data_size > UINT32_MAX, "Invalid file write size: fileWriteAsync");
+	SteamAPICall_t api_call = SteamAPI_ISteamRemoteStorage_FileWriteAsync(SteamAPI_SteamRemoteStorage(), file.utf8().get_data(), data.ptr(), (uint32_t)data_size);
 	callResultFileWriteAsyncComplete.Set(api_call, this, &Steam::file_write_async_complete);
 }
 
@@ -4933,7 +4929,8 @@ uint64_t Steam::fileWriteStreamOpen(const String &file) {
 // Writes a blob of data to the file write stream.
 bool Steam::fileWriteStreamWriteChunk(uint64_t write_handle, PackedByteArray data) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemoteStorage() == nullptr, false, "Remote Storage class not found, Steam may not be initialized: fileWriteStreamWriteChunk");
-	return SteamAPI_ISteamRemoteStorage_FileWriteStreamWriteChunk(SteamAPI_SteamRemoteStorage(), (UGCFileWriteStreamHandle_t)write_handle, data.ptr(), data.size());
+	ERR_FAIL_COND_V_MSG(data.size() > INT32_MAX, false, "File chunk exceeds maximum size: fileWriteStreamWriteChunk");
+	return SteamAPI_ISteamRemoteStorage_FileWriteStreamWriteChunk(SteamAPI_SteamRemoteStorage(), (UGCFileWriteStreamHandle_t)write_handle, data.ptr(), (int32_t)data.size());
 }
 
 // Gets the number of cached UGC.
@@ -5095,8 +5092,11 @@ void Steam::ugcDownloadToLocation(uint64_t content, const String &location, uint
 PackedByteArray Steam::ugcRead(uint64_t content, int32_t data_size, uint32_t offset, UGCReadAction action) {
 	PackedByteArray file_contents;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemoteStorage() == nullptr, file_contents, "Remote Storage class not found, Steam may not be initialized: setSyncPlatforms");
-	file_contents.resize(data_size);
-	SteamAPI_ISteamRemoteStorage_UGCRead(SteamAPI_SteamRemoteStorage(), (UGCHandle_t)content, file_contents.ptrw(), data_size, offset, (EUGCReadAction)action);
+	ERR_FAIL_COND_V_MSG(data_size < 0, file_contents, "Invalid read size: ugcRead");
+	ERR_FAIL_COND_V_MSG(file_contents.resize(data_size) != OK, file_contents, "Failed to allocate read buffer: ugcRead");
+	int32_t bytes_read = SteamAPI_ISteamRemoteStorage_UGCRead(SteamAPI_SteamRemoteStorage(), (UGCHandle_t)content, file_contents.ptrw(), data_size, offset, (EUGCReadAction)action);
+	ERR_FAIL_COND_V_MSG(bytes_read < 0 || bytes_read > data_size, PackedByteArray(), "Failed to read UGC data: ugcRead");
+	file_contents.resize(bytes_read);
 	return file_contents;
 }
 
