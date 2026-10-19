@@ -57,3 +57,19 @@ in the same receive batch. Valid non-authority mesh connections remain supported
 Offline native regressions: `python tests/native/run_tests.py` from a C++ compiler
 environment. These compile production method bodies with test doubles; they do
 not initialize Steam or verify real-client symmetric connection negotiation.
+
+## Receive queue divergence
+
+`steam/multiplayer_peer/max_queued_packets` defaults to 256 retained incoming
+messages per `SteamMultiplayerPeer`, shared across all its connections. Polling
+requests at most the remaining queue capacity (and at most 255 messages per
+call), leaving excess messages with Steam's own flow control. A full queue
+pauses reception, including handshakes, until the application drains packets.
+Values below 1 are clamped to 1 and values above the signed 32-bit maximum are
+clamped to that maximum. Lowering the limit preserves existing queued messages
+and pauses reception until they drain below the new limit.
+
+The last packet borrowed by `get_packet()` is retained separately until the next
+read or close. Closing or destroying the peer releases it and every queued
+message exactly once. Offline regressions cover slow consumers, resumed
+reception, minimum capacity, close, and destruction without initializing Steam.

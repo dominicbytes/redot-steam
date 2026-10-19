@@ -30,7 +30,12 @@ def main():
         "void SteamMultiplayerPeer::_poll()",
         "void SteamMultiplayerPeer::_upgrade_peer(",
         "void SteamMultiplayerPeer::network_connection_status_changed(",
+        "void SteamMultiplayerPeer::_close()",
+        "Error SteamMultiplayerPeer::_get_packet(",
+        "SteamMultiplayerPeer::~SteamMultiplayerPeer()",
     ))
+    settings = (ROOT / "godotsteam/godotsteam_project_settings.cpp").read_text(encoding="utf-8")
+    bodies += "\n" + method(settings, "int SteamProjectSettings::get_max_queued_packets()")
     harness = (ROOT / "tests/native/multiplayer_peer.cpp").read_text(encoding="utf-8")
     compiler = os.environ.get("CXX") or shutil.which("cl") or shutil.which("c++")
     if not compiler:

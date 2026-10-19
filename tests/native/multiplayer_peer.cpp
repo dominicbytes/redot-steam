@@ -9,6 +9,7 @@
 
 #define MAX_MESSAGE_COUNT 255
 #define unlikely(x) (x)
+#define ERR_FAIL_COND_V_MSG(condition, error, ...) do { if (condition) { return error; } } while (false)
 #define WARN_PRINT(...) ((void)0)
 #define ERR_PRINT(...) ((void)0)
 #define ERR_FAIL_COND_MSG(condition, ...) do { if (condition) { return; } } while (false)
@@ -35,12 +36,16 @@ struct SteamNetConnectionStatusChangedCallback_t {
 	} m_info;
 };
 
-enum Error { OK, ERR_INVALID_DATA };
+enum Error { OK, ERR_INVALID_DATA, ERR_UNAVAILABLE };
+constexpr int k_HSteamNetPollGroup_Invalid = 0;
 using HSteamNetConnection = uint32_t;
 template <typename T> using Ref = std::shared_ptr<T>;
 template <typename K, typename V> struct KeyValue { K key; V value; };
 template <typename K, typename V> struct HashMap {
 	std::vector<KeyValue<K, V>> entries;
+	auto begin() { return entries.begin(); }
+	auto end() { return entries.end(); }
+	void clear() { entries.clear(); }
 	bool has(K key) const {
 		return std::any_of(entries.begin(), entries.end(), [key](auto &e) { return e.key == key; });
 	}
@@ -57,9 +62,15 @@ struct SteamNetworkingMessage_t {
 	HSteamNetConnection m_conn;
 	uint32_t claimed_id;
 	int releases = 0;
+	void *GetData() { return &claimed_id; }
+	int GetSize() const { return sizeof(claimed_id); }
 };
 struct MessageList {
 	std::vector<SteamNetworkingMessage_t *> entries;
+	struct Element { SteamNetworkingMessage_t *value; SteamNetworkingMessage_t *get() { return value; } } front_element;
+	Element *front() { front_element.value = entries.front(); return &front_element; }
+	void pop_front() { entries.erase(entries.begin()); }
+	void clear() { entries.clear(); }
 	void push_back(SteamNetworkingMessage_t *message) { entries.push_back(message); }
 	bool is_empty() const { return entries.empty(); }
 	int size() const { return static_cast<int>(entries.size()); }
@@ -67,6 +78,17 @@ struct MessageList {
 static HashMap<HSteamNetConnection, int64_t> user_data;
 static std::vector<SteamNetworkingMessage_t *> receive_batch;
 static int requested_messages = 0;
+static int receive_calls = 0;
+static int64_t configured_queue_limit = 256;
+struct ProjectSettings {
+	static ProjectSettings *get_singleton() { static ProjectSettings instance; return &instance; }
+	int64_t get_setting_with_override(const char *) { return configured_queue_limit; }
+};
+struct SteamProjectSettings {
+	static int get_max_queued_packets();
+};
+static void SteamAPI_ISteamNetworkingSockets_CloseListenSocket(void *, int) {}
+static void SteamAPI_ISteamNetworkingSockets_DestroyPollGroup(void *, int) {}
 static void *SteamAPI_SteamNetworkingSockets_SteamAPI() { return nullptr; }
 static uint64_t SteamAPI_SteamNetworkingIdentity_GetSteamID64(uint64_t *id) { return *id; }
 static void SteamAPI_ISteamNetworkingSockets_CloseConnection(void *, HSteamNetConnection, int, const char *, bool) {}
@@ -74,6 +96,7 @@ static int SteamAPI_ISteamNetworkingSockets_AcceptConnection(void *, HSteamNetCo
 static bool SteamAPI_ISteamNetworkingSockets_SetConnectionPollGroup(void *, HSteamNetConnection, int) { return true; }
 static int SteamAPI_ISteamNetworkingSockets_ReceiveMessagesOnPollGroup(void *, int, SteamNetworkingMessage_t **messages, int count) {
 	requested_messages = count;
+	receive_calls++;
 	int received = std::min(count, static_cast<int>(receive_batch.size()));
 	std::copy_n(receive_batch.begin(), received, messages);
 	receive_batch.erase(receive_batch.begin(), receive_batch.begin() + received);
@@ -107,6 +130,10 @@ struct SteamMultiplayerPeer {
 	HashMap<uint32_t, Ref<SteamPacketPeer>> peers;
 	HashMap<HSteamNetConnection, Ref<SteamPacketPeer>> steam_connections;
 	MessageList incoming_packets;
+	SteamNetworkingMessage_t *current_packet = nullptr;
+	~SteamMultiplayerPeer();
+	void _close();
+	Error _get_packet(const uint8_t **, int *);
 	int poll_group = 1;
 	int debug_level = DEBUG_LEVEL_NONE;
 	int listen_socket = k_HSteamListenSocket_Invalid;
@@ -155,6 +182,12 @@ static void rejected_claim(uint32_t id, bool server = false, uint64_t steam_id =
 	assert(network.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTING);
 }
 int main() {
+	for (int64_t limit : {-10LL, 0LL, 1LL, 256LL, 2147483648LL}) {
+		configured_queue_limit = limit;
+		int expected = limit <= 0 ? 1 : limit > INT32_MAX ? INT32_MAX : static_cast<int>(limit);
+		assert(SteamProjectSettings::get_max_queued_packets() == expected);
+	}
+	configured_queue_limit = 256;
 	for (uint32_t id : {0u, 0x80000000u, 0xffffffffu, 2u, 1u}) { rejected_claim(id); }
 	rejected_claim(1, true, 100);
 	// A duplicate claim cannot replace the existing peer or deliver later data.
@@ -188,7 +221,10 @@ int main() {
 		assert(network.connected.size() == 1 && network.connected[0] == id);
 		assert(network.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTED);
 		assert(network.incoming_packets.size() == 1 && data.releases == 0 && handshake.releases == 1);
-		SteamAPI_SteamNetworkingMessage_t_Release(&data);
+		network._close();
+		assert(data.releases == 1);
+		network._close();
+		assert(data.releases == 1);
 	}
 	// A known ID alone is not admission while waiting for the connected callback.
 	SteamMultiplayerPeer early;
@@ -202,5 +238,43 @@ int main() {
 	early._upgrade_peer(40);
 	assert(early.peers[1] == peer && early.connected.size() == 1);
 	assert(handshake.releases == 1 && data.releases == 1);
+	// Slow consumers retain at most the configured budget, not every received packet.
+	std::vector<SteamNetworkingMessage_t> flood(2000, {50, 9});
+	{
+		SteamMultiplayerPeer queue;
+		auto sender = pending(queue, 50);
+		sender->set_peer_id(3);
+		queue._upgrade_peer(50);
+		receive_batch.clear();
+		for (auto &message : flood) { receive_batch.push_back(&message); }
+		queue._poll();
+		assert(requested_messages == 255 && queue.incoming_packets.size() == 255);
+		queue._poll();
+		assert(requested_messages == 1 && queue.incoming_packets.size() == 256);
+		int calls = receive_calls;
+		queue._poll();
+		assert(receive_calls == calls && receive_batch.size() == 1744);
+		const uint8_t *buffer = nullptr;
+		int size = 0;
+		for (int i = 0; i < 64; i++) { assert(queue._get_packet(&buffer, &size) == OK); }
+		assert(size == 4 && buffer != nullptr && queue.incoming_packets.size() == 192);
+		queue._poll();
+		assert(requested_messages == 64 && queue.incoming_packets.size() == 256);
+		// Destructor releases both queued messages and the last borrowed packet.
+	}
+	for (int i = 0; i < 2000; i++) { assert(flood[i].releases == (i < 320 ? 1 : 0)); }
+	receive_batch.clear();
+	configured_queue_limit = 1;
+	SteamMultiplayerPeer tiny;
+	auto sender = pending(tiny, 60);
+	sender->set_peer_id(3);
+	tiny._upgrade_peer(60);
+	SteamNetworkingMessage_t one{60, 9}, two{60, 9};
+	receive_batch = {&one, &two};
+	tiny._poll();
+	assert(requested_messages == 1 && tiny.incoming_packets.size() == 1 && receive_batch.size() == 1);
+	tiny._close();
+	assert(one.releases == 1 && two.releases == 0);
+	receive_batch.clear();
 	std::cout << "NATIVE_MULTIPLAYER_TESTS=PASS\n";
 }
