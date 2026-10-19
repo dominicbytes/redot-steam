@@ -131,6 +131,7 @@ struct Steam {
 	PackedInt64Array getGlobalStatIntHistory(const String&);
 	PackedFloat64Array getGlobalStatFloatHistory(const String&);
 	Dictionary getImageSize(int);
+	void file_details_result(FileDetailsResult_t*);
 	void gamepad_text_input_dismissed(GamepadTextInputDismissed_t*);
 	void leaderboard_scores_downloaded(LeaderboardScoresDownloaded_t*, bool);
 	int leaderboard_details_max = 3; Array leaderboard_entries_array;
@@ -174,6 +175,9 @@ int main() {
 	assert(s.getGlobalStatFloatHistory("stat") == PackedFloat64Array({1.5}));
 	auto image = s.getImageSize(0); assert(!std::any_cast<bool>(image["success"]));
 	assert(std::any_cast<uint32_t>(image["width"]) == 0 && std::any_cast<uint32_t>(image["height"]) == 0);
+	FileDetailsResult_t file{}; for (int i=0; i<20; ++i) file.m_FileSHA[i] = i;
+	s.file_details_result(&file); auto hash = std::any_cast<PackedByteArray>(signals["file_details_result"][2]);
+	assert(hash.size() == 20 && hash[19] == 19);
 	GamepadTextInputDismissed_t input{true, 480}; s.gamepad_text_input_dismissed(&input);
 	assert(std::any_cast<bool>(signals["gamepad_text_input_dismissed"][0]));
 	assert(std::any_cast<String>(signals["gamepad_text_input_dismissed"][1]).size() == text_length);

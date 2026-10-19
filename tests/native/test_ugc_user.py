@@ -16,7 +16,7 @@ def main():
              "getQueryUGCChildren", "getQueryUGCContentDescriptors", "getUserContentDescriptorPreferences",
              "setItemsDisabledLocally", "setSubscriptionsLoadOrder", "getSupportedGameVersionData",
              "getGlobalStatIntHistory", "getGlobalStatFloatHistory", "getImageSize",
-             "gamepad_text_input_dismissed", "leaderboard_scores_downloaded",
+             "file_details_result", "gamepad_text_input_dismissed", "leaderboard_scores_downloaded",
              "sendQueryUGCRequest", "releaseQueryUGCRequest", "ugc_query_completed")
     bodies = []
     for name in names:

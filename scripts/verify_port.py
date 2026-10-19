@@ -29,7 +29,7 @@ def main() -> int:
     # These additions are deliberate fixes; every other upstream difference fails the check.
     additions = {
         "methods": ["fileLoadDialogResponse"],
-        "signals": [],
+        "signals": ["html_browser_restarted"],
         "constants": [],
         "properties": [],
     }

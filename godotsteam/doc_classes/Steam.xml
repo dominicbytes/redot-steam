@@ -6957,16 +6957,10 @@
 		<signal name="connected_friend_chat_message">
 			<param index="0" name="steam_id" type="int" />
 			<param index="1" name="message_index" type="int" />
-			<param index="2" name="message_text" type="int" />
+			<param index="2" name="message_text" type="String" />
 			<param index="3" name="type" type="int" />
 			<description>
-				Called when chat message has been received from a friend.
-				The returned dictionary contains the following keys:
-				[codeblock]
-				┠╴ret (int)
-				┠╴text (string)
-				┖╴type (int)
-				[/codeblock]
+				Called when a chat message has been received from a friend.
 			</description>
 		</signal>
 		<signal name="create_beacon">
@@ -7027,15 +7021,12 @@
 			</description>
 		</signal>
 		<signal name="enumerate_following_list">
-			<param index="0" name="message" type="String" />
+			<param index="0" name="result" type="int" />
 			<param index="1" name="following" type="PackedInt64Array" />
+			<param index="2" name="returned_following" type="int" />
+			<param index="3" name="total_following" type="int" />
 			<description>
-				Returns the result of [method Steam.enumerateFollowingList].
-				The returned array contains a list of dictionaries containing the following keys:
-				[codeblock]
-				┠╴num (int)
-				┖╴id (int)
-				[/codeblock]
+				Returns the result of [method Steam.enumerateFollowingList], the followed Steam IDs, the number returned, and the total available.
 			</description>
 		</signal>
 		<signal name="equipped_profile_items">
@@ -7094,10 +7085,10 @@
 		<signal name="file_details_result">
 			<param index="0" name="result" type="int" />
 			<param index="1" name="file_size" type="int" />
-			<param index="2" name="file_hash" type="int" />
+			<param index="2" name="file_hash" type="PackedByteArray" />
 			<param index="3" name="flags" type="int" />
 			<description>
-				Called after requesting the details of a specific file.
+				Called after requesting the details of a specific file. [param file_hash] contains the 20 SHA-1 bytes.
 			</description>
 		</signal>
 		<signal name="file_read_async_complete">
@@ -7165,9 +7156,9 @@
 		<signal name="get_app_dependencies_result">
 			<param index="0" name="result" type="int" />
 			<param index="1" name="file_id" type="int" />
-			<param index="2" name="app_dependencies" type="int" />
-			<param index="3" name="total_app_dependencies" type="int" />
-			<param index="4" name="app_ids" type="PackedInt32Array" />
+			<param index="2" name="app_ids" type="PackedInt32Array" />
+			<param index="3" name="app_dependencies" type="int" />
+			<param index="4" name="total_app_dependencies" type="int" />
 			<description>
 				Called when getting the app dependencies for an item.
 			</description>
@@ -7239,6 +7230,13 @@
 			<param index="0" name="browser_handle" type="int" />
 			<description>
 				A new browser was created and is ready for use.
+			</description>
+		</signal>
+		<signal name="html_browser_restarted">
+			<param index="0" name="browser_handle" type="int" />
+			<param index="1" name="old_browser_handle" type="int" />
+			<description>
+				Called when the browser restarts. Replace references to [param old_browser_handle] with [param browser_handle].
 			</description>
 		</signal>
 		<signal name="html_can_go_backandforward">
@@ -7601,6 +7599,8 @@
 		<signal name="item_installed">
 			<param index="0" name="app_id" type="int" />
 			<param index="1" name="file_id" type="int" />
+			<param index="2" name="legacy_content" type="int" />
+			<param index="3" name="manifest_id" type="int" />
 			<description>
 				Called when a workshop item has been installed or updated.
 			</description>

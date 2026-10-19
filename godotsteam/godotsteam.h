@@ -1118,6 +1118,7 @@ private:
 	STEAM_CALLBACK(Steam, ipc_failure, IPCFailure_t, callbackIPCFailure);
 	STEAM_CALLBACK(Steam, licenses_updated, LicensesUpdated_t, callbackLicensesUpdated);
 	STEAM_CALLBACK(Steam, microtransaction_auth_response, MicroTxnAuthorizationResponse_t, callbackMicrotransactionAuthResponse);
+	STEAM_CALLBACK(Steam, steam_server_connect_failed, SteamServerConnectFailure_t, callbackSteamServerConnectFailed);
 	STEAM_CALLBACK(Steam, steam_server_connected, SteamServersConnected_t, callbackSteamServerConnected);
 	STEAM_CALLBACK(Steam, steam_server_disconnected, SteamServersDisconnected_t, callbackSteamServerDisconnected);
 	STEAM_CALLBACK(Steam, validate_auth_ticket_response, ValidateAuthTicketResponse_t, callbackValidateAuthTicketResponse);
@@ -1247,8 +1248,6 @@ private:
 	void encrypted_app_ticket_response(EncryptedAppTicketResponse_t *call_data, bool io_failure);
 	CCallResult<Steam, MarketEligibilityResponse_t> callResultMarketEligibilityResponse;
 	void market_eligibility_response(MarketEligibilityResponse_t *call_data, bool io_failure);
-	CCallResult<Steam, SteamServerConnectFailure_t> callResultSteamServerConnectFailure;
-	void steam_server_connect_failed(SteamServerConnectFailure_t *call_data, bool io_failure);
 	CCallResult<Steam, StoreAuthURLResponse_t> callResultStoreAuthURLResponse;
 	void store_auth_url_response(StoreAuthURLResponse_t *call_data, bool io_failure);
 
