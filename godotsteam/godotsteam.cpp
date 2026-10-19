@@ -2377,8 +2377,12 @@ void Steam::triggerRepeatedHapticPulse(uint64_t input_handle, SteamControllerPad
 // Send a haptic pulse, works on Steam Deck and Steam Controller devices.
 void Steam::triggerSimpleHapticEvent(uint64_t input_handle, ControllerHapticLocation haptic_location, uint8_t intensity, const String &gain_db, uint8_t other_intensity, const String &other_gain_db) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamInput() == nullptr, "Input not found, Steam may not be initialized: triggerSimpleHapticEvent");
-	char gain = gain_db[0];
-	char other_gain = other_gain_db[0];
+	ERR_FAIL_COND_MSG(!gain_db.is_valid_int() || !other_gain_db.is_valid_int(), "Haptic gains must be signed integers: triggerSimpleHapticEvent");
+	int64_t gain_value = gain_db.to_int();
+	int64_t other_gain_value = other_gain_db.to_int();
+	ERR_FAIL_COND_MSG(gain_value < -128 || gain_value > 127 || other_gain_value < -128 || other_gain_value > 127, "Haptic gains must fit a signed byte: triggerSimpleHapticEvent");
+	char gain = static_cast<char>(gain_value);
+	char other_gain = static_cast<char>(other_gain_value);
 	SteamAPI_ISteamInput_TriggerSimpleHapticEvent(SteamAPI_SteamInput(), (InputHandle_t)input_handle, (EControllerHapticLocation)haptic_location, intensity, gain, other_intensity, other_gain);
 }
 
