@@ -2479,14 +2479,15 @@ void Steam::destroyResult(int this_inventory_handle) {
 int32 Steam::exchangeItems(const PackedInt64Array output_items, const PackedInt32Array output_quantity, const PackedInt64Array input_items, const PackedInt32Array input_quantity) {
 	int32 new_inventory_handle = 0;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamInventory() == nullptr, new_inventory_handle, "Inventory class not found, Steam may not be initialized: exchangeItems");
+	ERR_FAIL_COND_V_MSG(output_items.size() != output_quantity.size() || input_items.size() != input_quantity.size(), new_inventory_handle, "Item and quantity counts must match: exchangeItems");
 	uint32_t total_output = output_items.size();
 	SteamItemDef_t *generated_items = new SteamItemDef_t[total_output];
 	for (uint32_t i = 0; i < total_output; i++) {
 		generated_items[i] = output_items[i];
 	}
 
-	uint32_t *quantity_out = (uint32_t*) output_quantity.ptr();
-	uint32_t *quantity_in = (uint32_t*) input_quantity.ptr();
+	const uint32_t *quantity_out = (const uint32_t*) output_quantity.ptr();
+	const uint32_t *quantity_in = (const uint32_t*) input_quantity.ptr();
 
 	uint32_t array_size = input_items.size();
 	SteamItemInstanceID_t *input_item_ids = new SteamItemInstanceID_t[array_size];
@@ -2507,6 +2508,7 @@ int32 Steam::exchangeItems(const PackedInt64Array output_items, const PackedInt3
 int32 Steam::generateItems(const PackedInt64Array items, const PackedInt32Array quantity) {
 	int32 new_inventory_handle = 0;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamInventory() == nullptr, new_inventory_handle, "Inventory class not found, Steam may not be initialized: generateItems");
+	ERR_FAIL_COND_V_MSG(items.size() != quantity.size(), new_inventory_handle, "Item and quantity counts must match: generateItems");
 	uint32_t total_quantity = items.size();
 	SteamItemDef_t *generated_items = new SteamItemDef_t[total_quantity];
 
@@ -2514,7 +2516,7 @@ int32 Steam::generateItems(const PackedInt64Array items, const PackedInt32Array 
 		generated_items[i] = items[i];
 	}
 
-	uint32_t *this_quantity = (uint32_t*) quantity.ptr();
+	const uint32_t *this_quantity = (const uint32_t*) quantity.ptr();
 	if (SteamAPI_ISteamInventory_GenerateItems(SteamAPI_SteamInventory(), &new_inventory_handle, generated_items, this_quantity, items.size())) {
 		inventory_handle = new_inventory_handle;
 	}
@@ -2637,11 +2639,12 @@ Array Steam::getResultItems(int32 this_inventory_handle) {
 	Array items;
 	uint32_t size = 0;
 
+	if (this_inventory_handle == 0) {
+		this_inventory_handle = inventory_handle;
+	}
+
 	if (SteamAPI_ISteamInventory_GetResultItems(SteamAPI_SteamInventory(), (SteamInventoryResult_t)this_inventory_handle, NULL, &size)) {
 		SteamItemDetails_t *item_array = new SteamItemDetails_t[size];
-		if (this_inventory_handle == 0) {
-			this_inventory_handle = inventory_handle;
-		}
 		if (SteamAPI_ISteamInventory_GetResultItems(SteamAPI_SteamInventory(), (SteamInventoryResult_t)this_inventory_handle, item_array, &size)) {
 			for (uint32_t i = 0; i < size; i++) {
 				Dictionary item_info;
@@ -2778,13 +2781,14 @@ bool Steam::setPropertyString(uint64_t item_id, const String &name, const String
 // Steam Wallet if necessary, etc.
 void Steam::startPurchase(const PackedInt64Array items, const PackedInt32Array quantity) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamInventory() == nullptr, "Inventory class not found, Steam may not be initialized: startPurchase");
+	ERR_FAIL_COND_MSG(items.size() != quantity.size(), "Item and quantity counts must match: startPurchase");
 	uint32_t total_items = items.size();
 	SteamItemDef_t *purchases = new SteamItemDef_t[total_items];
 	for (uint32_t i = 0; i < total_items; i++) {
 		purchases[i] = items[i];
 	}
 
-	uint32_t *these_quantities = (uint32_t*) quantity.ptr();
+	const uint32_t *these_quantities = (const uint32_t*) quantity.ptr();
 	SteamAPICall_t api_call = SteamAPI_ISteamInventory_StartPurchase(SteamAPI_SteamInventory(), purchases, these_quantities, total_items);
 	callResultStartPurchase.Set(api_call, this, &Steam::inventory_start_purchase_result);
 	delete[] purchases;
