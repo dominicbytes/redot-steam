@@ -1132,6 +1132,15 @@
 				Once a file has been deleted or forgotten, calling [method Steam.fileWrite] will resynchronize it in the Cloud. Rewriting a forgotten file is the only way to make it persisted again.
 			</description>
 		</method>
+		<method name="fileLoadDialogResponse">
+			<return type="void" />
+			<param index="0" name="selected_files" type="PackedStringArray" />
+			<param index="1" name="browser_handle" type="int" default="0" />
+			<description>
+				Respond to [signal html_file_open_dialog] after the user selects files. Pass the selected file paths, or an empty array to cancel. The initial filename from the signal is only a hint and is not submitted automatically.
+				Use the browser handle supplied by the signal when responding asynchronously. A zero handle uses the current internal browser handle.
+			</description>
+		</method>
 		<method name="filePersisted">
 			<return type="bool" />
 			<param index="0" name="file" type="String" />

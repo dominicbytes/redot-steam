@@ -260,6 +260,7 @@ public:
 	void copyToClipboard(uint32_t browser_handle = 0);
 	void createBrowser(const String &user_agent = "", const String &user_css = "");
 	void executeJavascript(const String &javascript, uint32_t browser_handle = 0);
+	void fileLoadDialogResponse(const PackedStringArray &selected_files, uint32_t browser_handle = 0);
 	void find(const String &search, bool currently_in_find, bool reverse, uint32_t browser_handle = 0);
 	void getLinkAtPosition(int x, int y, uint32_t browser_handle = 0);
 	void goBack(uint32_t browser_handle = 0);

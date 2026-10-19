@@ -1542,6 +1542,21 @@ void Steam::executeJavascript(const String &javascript, uint32_t browser_handle)
 	SteamAPI_ISteamHTMLSurface_ExecuteJavascript(SteamAPI_SteamHTMLSurface(), browser_handle, javascript.utf8().get_data());
 }
 
+// Respond after the application has selected files, or pass an empty array to cancel.
+void Steam::fileLoadDialogResponse(const PackedStringArray &selected_files, uint32_t browser_handle) {
+	ERR_FAIL_COND_MSG(SteamAPI_SteamHTMLSurface() == nullptr, "HTML Surface class not found, Steam may not be initialized: fileLoadDialogResponse");
+	if (browser_handle == 0) {
+		browser_handle = current_browser_handle;
+	}
+	std::vector<CharString> file_strings(selected_files.size());
+	std::vector<const char *> file_pointers(selected_files.size() + 1, nullptr);
+	for (int64_t i = 0; i < selected_files.size(); i++) {
+		file_strings[i] = selected_files[i].utf8();
+		file_pointers[i] = file_strings[i].get_data();
+	}
+	SteamAPI_ISteamHTMLSurface_FileLoadDialogResponse(SteamAPI_SteamHTMLSurface(), browser_handle, selected_files.is_empty() ? nullptr : file_pointers.data());
+}
+
 // Find a string in the current page of an HTML surface. This is the equivalent of "ctrl+f" in your browser of choice.
 // It will highlight all of the matching strings. You should call stopFind when the input string has changed or you want
 // to stop searching.
@@ -7402,9 +7417,6 @@ void Steam::html_file_open_dialog(HTML_FileOpenDialog_t *call_data) {
 	current_browser_handle = call_data->unBrowserHandle;
 	const String &title = call_data->pchTitle;
 	const String &initial_file = call_data->pchInitialFile;
-	// Allows you to react to a page wanting to open a file load dialog. NOTE: You MUST call this in response to a
-	// HTML_FileOpenDialog_t callback. So it is added here unless there is a case to use it separately.
-	SteamAPI_ISteamHTMLSurface_FileLoadDialogResponse(SteamAPI_SteamHTMLSurface(), current_browser_handle, &call_data->pchInitialFile);
 	emit_signal("html_file_open_dialog", current_browser_handle, title, initial_file);
 }
 
@@ -9179,6 +9191,7 @@ void Steam::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("copyToClipboard", "browser_handle"), &Steam::copyToClipboard, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("createBrowser", "user_agent", "user_css"), &Steam::createBrowser, DEFVAL(""), DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("executeJavascript", "script", "browser_handle"), &Steam::executeJavascript, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("fileLoadDialogResponse", "selected_files", "browser_handle"), &Steam::fileLoadDialogResponse, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("find", "search", "currently_in_find", "reverse", "browser_handle"), &Steam::find, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("getLinkAtPosition", "x", "y", "browser_handle"), &Steam::getLinkAtPosition, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("goBack", "browser_handle"), &Steam::goBack, DEFVAL(0));
