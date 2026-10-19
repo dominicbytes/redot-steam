@@ -902,7 +902,7 @@ bool Steam::closeClanChatWindowInSteam(uint64_t chat_id) {
 // download the info to have the latest.
 void Steam::downloadClanActivityCounts(PackedInt64Array clan_id_array) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamFriends() == nullptr, "Friends class not found, Steam may not be initialized: downloadClanActivityCounts");
-	int clan_count = sizeof(clan_id_array);
+	int clan_count = clan_id_array.size();
 	CSteamID *clan_list = new CSteamID[clan_count];
 	for (int i = 0; i < clan_count; i++) {
 		clan_list[i] = (uint64)clan_id_array[i];
@@ -921,7 +921,7 @@ void Steam::enumerateFollowingList(uint32_t start_index) {
 // Gets the Steam ID at the given index in a Steam group chat.
 uint64_t Steam::getChatMemberByIndex(uint64_t clan_id, int user) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamFriends() == nullptr, 0, "Friends class not found, Steam may not be initialized: getChatMemberByIndex");
-	return SteamAPI_ISteamFriends_GetChatMemberByIndex(SteamAPI_SteamFriends(), current_clan_id, user);
+	return SteamAPI_ISteamFriends_GetChatMemberByIndex(SteamAPI_SteamFriends(), clan_id, user);
 }
 
 // Gets the most recent information we have about what the users in a Steam Group are doing.
@@ -1062,20 +1062,11 @@ Dictionary Steam::getFriendGamePlayed(uint64_t steam_id) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamFriends() == nullptr, friend_game, "Friends class not found, Steam may not be initialized: getFriendGamePlayed");
 	FriendGameInfo_t game_info;
 	if (SteamAPI_ISteamFriends_GetFriendGamePlayed(SteamAPI_SteamFriends(), steam_id, &game_info)) {
-		if (game_info.m_steamIDLobby.IsValid()) {
-			friend_game["id"] = game_info.m_gameID.AppID();
-			friend_game["ip"] = getStringFromIP(game_info.m_unGameIP);
-			friend_game["game_port"] = game_info.m_usGamePort;
-			friend_game["query_port"] = game_info.m_usQueryPort;
-			friend_game["lobby"] = uint64_t(game_info.m_steamIDLobby.ConvertToUint64());
-		}
-		else {
-			friend_game["id"] = game_info.m_gameID.AppID();
-			friend_game["ip"] = "0.0.0.0";
-			friend_game["game_port"] = 0;
-			friend_game["query_port"] = 0;
-			friend_game["lobby"] = 0; // No valid lobby
-		}
+		friend_game["id"] = game_info.m_gameID.AppID();
+		friend_game["ip"] = getStringFromIP(game_info.m_unGameIP);
+		friend_game["game_port"] = game_info.m_usGamePort;
+		friend_game["query_port"] = game_info.m_usQueryPort;
+		friend_game["lobby"] = game_info.m_steamIDLobby.IsValid() ? uint64_t(game_info.m_steamIDLobby.ConvertToUint64()) : uint64_t(0);
 	}
 	return friend_game;
 }
@@ -1153,10 +1144,12 @@ int Steam::getFriendsGroupMembersCount(int16_t friend_group) {
 Array Steam::getFriendsGroupMembersList(int16_t friend_group, int member_count) {
 	Array member_list;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamFriends() == nullptr, member_list, "Friends class not found, Steam may not be initialized: getFriendsGroupMembersList");
-	CSteamID friend_ids;
-	SteamAPI_ISteamFriends_GetFriendsGroupMembersList(SteamAPI_SteamFriends(), (FriendsGroupID_t)friend_group, &friend_ids, member_count);
-	uint64_t friends = friend_ids.ConvertToUint64();
-	member_list.append(friends);
+	ERR_FAIL_COND_V_MSG(member_count < 0, member_list, "Member count must not be negative: getFriendsGroupMembersList");
+	std::vector<CSteamID> friend_ids(member_count);
+	SteamAPI_ISteamFriends_GetFriendsGroupMembersList(SteamAPI_SteamFriends(), (FriendsGroupID_t)friend_group, friend_ids.data(), member_count);
+	for (const CSteamID &friend_id : friend_ids) {
+		member_list.append(uint64_t(friend_id.ConvertToUint64()));
+	}
 	return member_list;
 }
 
