@@ -1995,7 +1995,7 @@ bool Steam::setHTTPRequestNetworkActivityTimeout(uint32_t request_handle, uint32
 bool Steam::setHTTPRequestRawPostBody(uint32_t request_handle, const String &content_type, const String &body) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamHTTP() == nullptr, false, "HTTP class not found, Steam may not be initialized: setHTTPRequestRawPostBody");
 	auto body_utf8 = body.utf8();
-	return SteamAPI_ISteamHTTP_SetHTTPRequestRawPostBody(SteamAPI_SteamHTTP(), request_handle, content_type.utf8().get_data(), reinterpret_cast<uint8_t *>(body_utf8.ptrw()), body_utf8.size());
+	return SteamAPI_ISteamHTTP_SetHTTPRequestRawPostBody(SteamAPI_SteamHTTP(), request_handle, content_type.utf8().get_data(), reinterpret_cast<uint8_t *>(body_utf8.ptrw()), body_utf8.length());
 }
 
 // Sets that the HTTPS request should require verified SSL certificate via machines certificate trust store. This currently only
