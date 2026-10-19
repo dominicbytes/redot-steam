@@ -44,3 +44,16 @@ Port status for Redot 26.2.
 - Next steps: Beta private-app suite, then clean-runner RC reproducibility and GitHub publication
 
 The tracked upstream README is preserved unchanged as `UPSTREAM_README.md`. Port-specific status lives here.
+
+## Multiplayer peer admission divergence
+
+Remote peer IDs must be positive signed 32-bit values, differ from the local ID,
+and be unused. On clients, only the Steam identity selected by `create_client()`
+may claim authority ID 1; hosts never admit a remote ID 1. Rejected connections
+are closed without `peer_connected`. Receive delivery and disconnect callbacks
+must match the connection that owns the admitted ID, including later packets
+in the same receive batch. Valid non-authority mesh connections remain supported.
+
+Offline native regressions: `python tests/native/run_tests.py` from a C++ compiler
+environment. These compile production method bodies with test doubles; they do
+not initialize Steam or verify real-client symmetric connection negotiation.
