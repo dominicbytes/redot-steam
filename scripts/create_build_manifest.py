@@ -6,6 +6,10 @@ import hashlib
 import json
 import subprocess
 import zipfile
+import struct
+
+from verify_binaries import TARGETS
+from verify_package import verify_package
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +31,10 @@ def git(*args: str) -> str:
 
 def tree_digest(root: Path) -> str:
     digest = hashlib.sha256()
-    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+    files = sorted((item for item in root.rglob("*") if item.is_file()), key=lambda item: item.relative_to(root).as_posix())
+    if not root.is_dir() or not files or not any(path.stat().st_size for path in files):
+        raise AssertionError("required input tree is missing or empty")
+    for path in files:
         digest.update(path.relative_to(root).as_posix().encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
@@ -40,10 +47,12 @@ def main() -> int:
     parser.add_argument("artifact", type=Path)
     parser.add_argument("--sdk-path", type=Path, default=ROOT / "godotsteam/sdk")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--targets", nargs="+", choices=TARGETS)
     args = parser.parse_args()
     artifact = args.artifact.resolve()
     output = args.output.resolve() if args.output else artifact.with_suffix(".build-manifest.json")
 
+    verify_package(artifact, args.targets)
     binaries = []
     with zipfile.ZipFile(artifact) as package:
         for info in package.infolist():
@@ -62,28 +71,27 @@ def main() -> int:
     sdk_headers = args.sdk_path.resolve() / "public/steam"
     sdk_redist = args.sdk_path.resolve() / "redistributable_bin"
     manifest = {
-        "schema": 1,
+        "schema": 2,
+        "purpose": "Artifact and input observations at manifest creation; not build provenance",
+        "build_provenance_verified": False,
+        "targets": args.targets or list(TARGETS),
         "project": "RedotSteam",
         "artifact": {"path": artifact.name, "sha256": digest_file(artifact)},
-        "source": {
+        "source_observed_at_manifest_creation": {
             "downstream_repository": "https://github.com/dominicbytes/redot-steam",
             "downstream_commit": git("rev-parse", "HEAD"),
             "upstream_repository": "https://codeberg.org/godotsteam/godotsteam",
             "upstream_commit": UPSTREAM_COMMIT,
             "working_tree_dirty": bool(status.strip()),
         },
-        "redot": {
-            "version": "26.2.stable.official.4f5b14aba",
-            "binary_sha256": "10DFBEFC273536F0C65903D6429E531C30133820BF0FA842F2D6E6FB81DB1D42",
+        "binding_abi_observed_at_manifest_creation": {
             "extension_api_sha256": digest_file(ROOT / "redot-api/26.2/extension_api.json"),
             "gdextension_interface_sha256": digest_file(ROOT / "redot-api/26.2/gdextension_interface.h"),
         },
-        "godot_cpp_commit": "6388e26dd8a42071f65f764a3ef3d9523dda3d6e",
-        "steamworks_sdk": {
-            "version": "1.65",
-            "used_for_build": True,
+        "godot_cpp_commit_observed": subprocess.check_output(["git", "-C", str(ROOT / "godot-cpp"), "rev-parse", "HEAD"], text=True).strip(),
+        "steamworks_sdk_observed_at_manifest_creation": {
             "included_in_package": False,
-            "provenance": "USER_SUPPLIED",
+            "provenance": "USER_SUPPLIED_INPUT_NOT_BUILD_ATTESTATION",
             "public_headers_tree_sha256": tree_digest(sdk_headers),
             "redistributables_tree_sha256": tree_digest(sdk_redist),
         },
@@ -91,9 +99,13 @@ def main() -> int:
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(output)
+    print("REDOTSTEAM_MANIFEST=OBSERVATIONS_ONLY")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except (AssertionError, OSError, struct.error, zipfile.BadZipFile) as error:
+        print(f"REDOTSTEAM_MANIFEST=FAIL: {type(error).__name__}")
+        raise SystemExit(1)
