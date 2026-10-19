@@ -217,9 +217,10 @@ Steam::Steam() :
 
 // Helper function to turn an array of options into an array of SteamNetworkingConfigValue_t structs. These arrays
 // contain dictionaries of { NetworkingConfigValue enum : value for config }
-const SteamNetworkingConfigValue_t *Steam::convert_config_options(Dictionary config_options) {
+void Steam::convert_config_options(Dictionary config_options, std::vector<SteamNetworkingConfigValue_t> &option_array, std::vector<CharString> &option_strings) {
 	uint32_t options_size = config_options.size();
-	SteamNetworkingConfigValue_t *option_array = new SteamNetworkingConfigValue_t[options_size];
+	option_array.resize(options_size);
+	option_strings.resize(options_size);
 
 	if (options_size > 0) {
 		for (uint32_t i = 0; i < options_size; i++) {
@@ -242,7 +243,8 @@ const SteamNetworkingConfigValue_t *Steam::convert_config_options(Dictionary con
 				SteamAPI_SteamNetworkingConfigValue_t_SetFloat(&this_option, this_value, config_options[sent_option]);
 			}
 			else if (value_type == Variant::STRING) {
-				SteamAPI_SteamNetworkingConfigValue_t_SetString(&this_option, this_value, String(config_options[sent_option]).utf8().get_data());
+				option_strings[i] = String(config_options[sent_option]).utf8();
+				SteamAPI_SteamNetworkingConfigValue_t_SetString(&this_option, this_value, option_strings[i].get_data());
 			}
 			else {
 				Object *this_pointer;
@@ -252,7 +254,6 @@ const SteamNetworkingConfigValue_t *Steam::convert_config_options(Dictionary con
 			option_array[i] = this_option;
 		}
 	}
-	return option_array;
 }
 
 // Creating a Steam ID for internal use
@@ -3527,7 +3528,10 @@ int Steam::sendMessageToUser(uint64_t remote_steam_id, const PackedByteArray dat
 // (IPv4 or IPv6).
 uint32_t Steam::createListenSocketIP(String ip_address, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: createListenSocketIP");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketIP(SteamAPI_SteamNetworkingSockets_SteamAPI(), getSteamIPFromString(ip_address), config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketIP(SteamAPI_SteamNetworkingSockets_SteamAPI(), getSteamIPFromString(ip_address), config_options.size(), options.data());
 	return listen_socket;
 }
 
@@ -3535,7 +3539,10 @@ uint32_t Steam::createListenSocketIP(String ip_address, Dictionary config_option
 // Valve network.
 uint32_t Steam::createListenSocketP2P(int virtual_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: createListenSocketP2P");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketP2P(SteamAPI_SteamNetworkingSockets_SteamAPI(), virtual_port, config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketP2P(SteamAPI_SteamNetworkingSockets_SteamAPI(), virtual_port, config_options.size(), options.data());
 	return listen_socket;
 }
 
@@ -3544,7 +3551,10 @@ uint32_t Steam::createListenSocketP2P(int virtual_port, Dictionary config_option
 // steam backend.) The traffic is relayed over the Steam Datagram Relay network.
 uint32_t Steam::connectP2P(uint64_t remote_steam_id, int virtual_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: connectP2P");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_ConnectP2P(SteamAPI_SteamNetworkingSockets_SteamAPI(), getIdentityFromSteamID(remote_steam_id), virtual_port, config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_ConnectP2P(SteamAPI_SteamNetworkingSockets_SteamAPI(), getIdentityFromSteamID(remote_steam_id), virtual_port, config_options.size(), options.data());
 	return listen_socket;
 }
 
@@ -3552,14 +3562,20 @@ uint32_t Steam::connectP2P(uint64_t remote_steam_id, int virtual_port, Dictionar
 // Used with createListenSocketIP.
 uint32_t Steam::connectByIPAddress(String ip_address_with_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: connectByIPAddress");
-	return SteamAPI_ISteamNetworkingSockets_ConnectByIPAddress(SteamAPI_SteamNetworkingSockets_SteamAPI(), getSteamIPFromString(ip_address_with_port), config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	return SteamAPI_ISteamNetworkingSockets_ConnectByIPAddress(SteamAPI_SteamNetworkingSockets_SteamAPI(), getSteamIPFromString(ip_address_with_port), config_options.size(), options.data());
 }
 
 // Client call to connect to a server hosted in a Valve data center, on the specified virtual port. You must have placed
 // a ticket for this server into the cache, or else this connect attempt will fail!
 uint32_t Steam::connectToHostedDedicatedServer(uint64_t remote_steam_id, int virtual_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: connectToHostedDedicatedServer");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_ConnectToHostedDedicatedServer(SteamAPI_SteamNetworkingSockets_SteamAPI(), getIdentityFromSteamID(remote_steam_id), virtual_port, config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_ConnectToHostedDedicatedServer(SteamAPI_SteamNetworkingSockets_SteamAPI(), getIdentityFromSteamID(remote_steam_id), virtual_port, config_options.size(), options.data());
 	return listen_socket;
 }
 
@@ -4043,7 +4059,10 @@ Dictionary Steam::getFakeIP(int first_port) {
 // this listen socket by calling ConnectByIPAddress.
 uint32_t Steam::createListenSocketP2PFakeIP(int fake_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: createListenSocketP2PFakeIP");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketP2PFakeIP(SteamAPI_SteamNetworkingSockets_SteamAPI(), fake_port, config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketP2PFakeIP(SteamAPI_SteamNetworkingSockets_SteamAPI(), fake_port, config_options.size(), options.data());
 	return listen_socket;
 }
 

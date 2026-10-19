@@ -64,6 +64,7 @@
 
 // Include some system headers
 #include "map"
+#include <vector>
 
 namespace godot {
 
@@ -935,7 +936,7 @@ private:
 	bool is_init_success;
 	bool were_callbacks_embedded;
 
-	const SteamNetworkingConfigValue_t *convert_config_options(Dictionary config_options);
+	void convert_config_options(Dictionary config_options, std::vector<SteamNetworkingConfigValue_t> &option_array, std::vector<CharString> &option_strings);
 	CSteamID createSteamID(uint64_t steam_id, AccountType account_type = AccountType(-1));
 	SteamNetworkingIdentity getIdentityFromSteamID(uint64_t steam_id);
 	uint32_t getIPFromSteamIP(SteamNetworkingIPAddr this_address);
