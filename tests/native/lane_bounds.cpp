@@ -158,12 +158,23 @@ static void transport_case(const std::string &name) {
 		auto info = settings->info["steam/multiplayer_peer/max_channels"];
 		assert(int64_t(info["type"]) == Variant::INT && int64_t(info["hint"]) == PROPERTY_HINT_RANGE);
 		assert(std::get<std::string>(info["hint_string"].data) == "1,255,1");
+	} else if (name == "C8") {
+		settings->settings.clear(); settings->initial.clear();
+		SteamProjectSettings::register_settings();
+		assert(settings->settings.size() == 9 && settings->initial.size() == 9);
+		for (const auto &entry : settings->settings) { assert(settings->initial[entry.first].data == entry.second.data); }
+		settings->set("steam/multiplayer_peer/max_channels", 7);
+		settings->set("steam/initialization/processes/embed_callbacks", true);
+		SteamProjectSettings::register_settings();
+		assert(int64_t(settings->settings["steam/multiplayer_peer/max_channels"]) == 7);
+		assert(int64_t(settings->initial["steam/multiplayer_peer/max_channels"]) == 4);
+		assert(!std::get<bool>(settings->initial["steam/initialization/processes/embed_callbacks"].data));
 	}
 	errors = 0; warnings = 0;
 }
 int main(int argc, char **argv) {
 	std::string selected = argc > 1 ? argv[1] : "all";
-	for (const char *name : {"C2", "C7"}) {
+	for (const char *name : {"C2", "C7", "C8"}) {
 		if (selected == "all" || selected == name) { transport_case(name); }
 	}
 	if (selected != "all") { std::cout << selected << "=PASS\n"; return 0; }

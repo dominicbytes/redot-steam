@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-ref", help="Test production methods from a git revision")
-    parser.add_argument("--case", default="all", choices=['all', 'C2', 'C7'])
+    parser.add_argument("--case", default="all", choices=['all', 'C2', 'C7', 'C8'])
     args = parser.parse_args()
     source = source_text("godotsteam/steam_packet_peer.cpp", args.source_ref)
     bodies = "\n".join(method(source, signature) for signature in (
