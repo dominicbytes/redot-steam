@@ -7159,7 +7159,7 @@
 			<param index="1" name="entered_text" type="String" />
 			<param index="2" name="app_id" type="int" />
 			<description>
-				Called when the Big Picture gamepad text input has been closed.
+				Called when the Big Picture gamepad text input has been closed. [param submitted] is false if canceled or if the entered text could not be retrieved.
 			</description>
 		</signal>
 		<signal name="get_app_dependencies_result">

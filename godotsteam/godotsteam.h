@@ -1229,7 +1229,7 @@ private:
 	void set_user_item_vote(SetUserItemVoteResult_t *call_data, bool io_failure);
 	CCallResult<Steam, StartPlaytimeTrackingResult_t> callResultStartPlaytimeTracking;
 	void start_playtime_tracking(StartPlaytimeTrackingResult_t *call_data, bool io_failure);
-	CCallResult<Steam, SteamUGCQueryCompleted_t> callResultUGCQueryCompleted;
+	std::map<UGCQueryHandle_t, CCallResult<Steam, SteamUGCQueryCompleted_t>> callResultsUGCQueryCompleted;
 	void ugc_query_completed(SteamUGCQueryCompleted_t *call_data, bool io_failure);
 	CCallResult<Steam, StopPlaytimeTrackingResult_t> callResultStopPlaytimeTracking;
 	void stop_playtime_tracking(StopPlaytimeTrackingResult_t *call_data, bool io_failure);
