@@ -73,3 +73,16 @@ The last packet borrowed by `get_packet()` is retained separately until the next
 read or close. Closing or destroying the peer releases it and every queued
 message exactly once. Offline regressions cover slow consumers, resumed
 reception, minimum capacity, close, and destruction without initializing Steam.
+
+## Channel bounds divergence
+
+`SteamPacketPeer::send()` accepts every channel in `0 <= channel < max_channels`,
+including channel 3 with the default four lanes. Negative channels and channels
+at or above the configured lane count now report an error and return
+`ERR_INVALID_PARAMETER` before allocating or sending a message. Invalid channels
+are no longer silently redirected to lane 0.
+
+Offline native regressions: `python tests/native/test_lane_bounds.py` from a C++
+compiler environment. These compile the production send method with transport
+doubles and verify all valid lanes plus lower and upper invalid boundaries for
+one, four, and eight lanes. They do not initialize Steam or verify live transport.

@@ -12549,7 +12549,7 @@
       "upstream": "17331d6e7dbac795b3a33a43932f851fb299a6b746713cca7caee66c7844e87b"
     },
     "godotsteam/steam_packet_peer.cpp": {
-      "downstream": "3529dc70361c7bbe0e167fd2390ecd7aa5eb202f95340f1e4f18e200e0866291",
+      "downstream": "028ed580d853fe417dc3b813b89e20a6fc6feaebb0b39a39d8999bb6a7763bfd",
       "upstream": "3529dc70361c7bbe0e167fd2390ecd7aa5eb202f95340f1e4f18e200e0866291"
     }
   }

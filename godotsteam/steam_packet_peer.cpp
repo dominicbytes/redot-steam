@@ -87,13 +87,9 @@ Error SteamPacketPeer::send(int p_channel, const uint8_t *p_data, int p_size, in
 
 	ERR_FAIL_COND_V(p_data == nullptr || p_size <= 0, ERR_INVALID_PARAMETER);
 
-	if (unlikely(p_channel >= (configured_lanes - 1))) {
-		WARN_PRINT(vformat("Peer is only set up to use %d channels (0-%d). Please explicitly set"
-				"the number of channels in your Project Settings. Defaulting to channel 0.",
-				configured_lanes, configured_lanes - 1)
-				);
-		p_channel = 0;
-	}
+	ERR_FAIL_COND_V_MSG(p_channel < 0 || p_channel >= configured_lanes, ERR_INVALID_PARAMETER,
+			vformat("Channel %d is outside the configured range (0-%d). Set the number of channels in Project Settings.",
+					p_channel, configured_lanes - 1));
 
 	SteamNetworkingMessage_t *packet = SteamAPI_ISteamNetworkingUtils_AllocateMessage(
 			SteamAPI_SteamNetworkingUtils_SteamAPI(), p_size
