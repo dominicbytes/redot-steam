@@ -889,7 +889,10 @@
             "INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_X_TOUCH",
             "INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_Y_CLICK",
             "INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_Y_TOUCH",
+            "INPUT_ACTION_ORIGIN_SWITCH2_A",
+            "INPUT_ACTION_ORIGIN_SWITCH2_B",
             "INPUT_ACTION_ORIGIN_SWITCH2_C",
+            "INPUT_ACTION_ORIGIN_SWITCH2_CAPTURE",
             "INPUT_ACTION_ORIGIN_SWITCH2_DPAD_EAST",
             "INPUT_ACTION_ORIGIN_SWITCH2_DPAD_MOVE",
             "INPUT_ACTION_ORIGIN_SWITCH2_DPAD_NORTH",
@@ -897,12 +900,17 @@
             "INPUT_ACTION_ORIGIN_SWITCH2_DPAD_WEST",
             "INPUT_ACTION_ORIGIN_SWITCH2_GL",
             "INPUT_ACTION_ORIGIN_SWITCH2_GR",
+            "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_BUMPER",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_CLICK",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_EAST",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_NORTH",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_SOUTH",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_WEST",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_MOVE",
+            "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_CLICK",
+            "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_PULL",
+            "INPUT_ACTION_ORIGIN_SWITCH2_MINUS",
+            "INPUT_ACTION_ORIGIN_SWITCH2_PLUS",
             "INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_MOVE",
             "INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_PITCH",
             "INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_ROLL",
@@ -917,6 +925,7 @@
             "INPUT_ACTION_ORIGIN_SWITCH2_RESERVED7",
             "INPUT_ACTION_ORIGIN_SWITCH2_RESERVED8",
             "INPUT_ACTION_ORIGIN_SWITCH2_RESERVED9",
+            "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_BUMPER",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_CLICK",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_EAST",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_NORTH",
@@ -925,6 +934,8 @@
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_MOVE",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_CLICK",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_PULL",
+            "INPUT_ACTION_ORIGIN_SWITCH2_X",
+            "INPUT_ACTION_ORIGIN_SWITCH2_Y",
             "INPUT_ACTION_ORIGIN_SWITCH_A",
             "INPUT_ACTION_ORIGIN_SWITCH_B",
             "INPUT_ACTION_ORIGIN_SWITCH_CAPTURE",
@@ -2200,6 +2211,7 @@
             "getLocalFileChangeCount",
             "getLocalPingLocation",
             "getLocalTimestamp",
+            "getMarketEligibility",
             "getMediumFriendAvatar",
             "getMediumSessionAvatar",
             "getMostAchievedAchievementInfo",
@@ -2884,8 +2896,8 @@
           "signals": []
         },
         "counts": {
-          "constants": 1894,
-          "methods": 743,
+          "constants": 1905,
+          "methods": 744,
           "properties": 10,
           "signals": 187
         },
@@ -3808,7 +3820,10 @@
             "INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_X_TOUCH",
             "INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_Y_CLICK",
             "INPUT_ACTION_ORIGIN_STEAMFRAMECONTROLLER_Y_TOUCH",
+            "INPUT_ACTION_ORIGIN_SWITCH2_A",
+            "INPUT_ACTION_ORIGIN_SWITCH2_B",
             "INPUT_ACTION_ORIGIN_SWITCH2_C",
+            "INPUT_ACTION_ORIGIN_SWITCH2_CAPTURE",
             "INPUT_ACTION_ORIGIN_SWITCH2_DPAD_EAST",
             "INPUT_ACTION_ORIGIN_SWITCH2_DPAD_MOVE",
             "INPUT_ACTION_ORIGIN_SWITCH2_DPAD_NORTH",
@@ -3816,12 +3831,17 @@
             "INPUT_ACTION_ORIGIN_SWITCH2_DPAD_WEST",
             "INPUT_ACTION_ORIGIN_SWITCH2_GL",
             "INPUT_ACTION_ORIGIN_SWITCH2_GR",
+            "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_BUMPER",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_CLICK",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_EAST",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_NORTH",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_SOUTH",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_DPAD_WEST",
             "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_MOVE",
+            "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_CLICK",
+            "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_PULL",
+            "INPUT_ACTION_ORIGIN_SWITCH2_MINUS",
+            "INPUT_ACTION_ORIGIN_SWITCH2_PLUS",
             "INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_MOVE",
             "INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_PITCH",
             "INPUT_ACTION_ORIGIN_SWITCH2_PRO_GYRO_ROLL",
@@ -3836,6 +3856,7 @@
             "INPUT_ACTION_ORIGIN_SWITCH2_RESERVED7",
             "INPUT_ACTION_ORIGIN_SWITCH2_RESERVED8",
             "INPUT_ACTION_ORIGIN_SWITCH2_RESERVED9",
+            "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_BUMPER",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_CLICK",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_EAST",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_DPAD_NORTH",
@@ -3844,6 +3865,8 @@
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_STICK_MOVE",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_CLICK",
             "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_PULL",
+            "INPUT_ACTION_ORIGIN_SWITCH2_X",
+            "INPUT_ACTION_ORIGIN_SWITCH2_Y",
             "INPUT_ACTION_ORIGIN_SWITCH_A",
             "INPUT_ACTION_ORIGIN_SWITCH_B",
             "INPUT_ACTION_ORIGIN_SWITCH_CAPTURE",
@@ -5195,6 +5218,7 @@
             "getLocalFileChangeCount",
             "getLocalPingLocation",
             "getLocalTimestamp",
+            "getMarketEligibility",
             "getMediumFriendAvatar",
             "getMediumSessionAvatar",
             "getMostAchievedAchievementInfo",
@@ -5820,8 +5844,8 @@
           ]
         },
         "documented_counts": {
-          "constants": 2003,
-          "methods": 717,
+          "constants": 2014,
+          "methods": 718,
           "properties": 10,
           "signals": 187
         },
@@ -5947,12 +5971,25 @@
       "parity": {
         "bindings": {
           "constants": {
-            "added": [],
+            "added": [
+              "INPUT_ACTION_ORIGIN_SWITCH2_A",
+              "INPUT_ACTION_ORIGIN_SWITCH2_B",
+              "INPUT_ACTION_ORIGIN_SWITCH2_CAPTURE",
+              "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_BUMPER",
+              "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_CLICK",
+              "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_PULL",
+              "INPUT_ACTION_ORIGIN_SWITCH2_MINUS",
+              "INPUT_ACTION_ORIGIN_SWITCH2_PLUS",
+              "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_BUMPER",
+              "INPUT_ACTION_ORIGIN_SWITCH2_X",
+              "INPUT_ACTION_ORIGIN_SWITCH2_Y"
+            ],
             "missing": []
           },
           "methods": {
             "added": [
-              "fileLoadDialogResponse"
+              "fileLoadDialogResponse",
+              "getMarketEligibility"
             ],
             "missing": []
           },
@@ -5970,12 +6007,25 @@
         "declarations_exact": false,
         "documented": {
           "constants": {
-            "added": [],
+            "added": [
+              "INPUT_ACTION_ORIGIN_SWITCH2_A",
+              "INPUT_ACTION_ORIGIN_SWITCH2_B",
+              "INPUT_ACTION_ORIGIN_SWITCH2_CAPTURE",
+              "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_BUMPER",
+              "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_CLICK",
+              "INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_PULL",
+              "INPUT_ACTION_ORIGIN_SWITCH2_MINUS",
+              "INPUT_ACTION_ORIGIN_SWITCH2_PLUS",
+              "INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_BUMPER",
+              "INPUT_ACTION_ORIGIN_SWITCH2_X",
+              "INPUT_ACTION_ORIGIN_SWITCH2_Y"
+            ],
             "missing": []
           },
           "methods": {
             "added": [
-              "fileLoadDialogResponse"
+              "fileLoadDialogResponse",
+              "getMarketEligibility"
             ],
             "missing": []
           },
@@ -12566,7 +12616,7 @@
       "upstream": "d6ab222aa32dae6f5131be8b6a5b7c90e5dac417657dafa5af1d9715042e6213"
     },
     "godotsteam/doc_classes/Steam.xml": {
-      "downstream": "5464a4c31821ff8faf2b78f5f5b9bf3449155bed29935edc9adee19c96f9569d",
+      "downstream": "7e8e123e1fae613eb33cd1f7fa412df7fd17b69f7363019898d0c26480bbf821",
       "upstream": "eee730391d7323dfd7cddac7228b5201234aeba66d2653d9864d79bee85a7986"
     },
     "godotsteam/doc_classes/SteamMultiplayerPeer.xml": {
@@ -12578,7 +12628,7 @@
       "upstream": "183e11fd02c471b0498423b58934f5b9793ce125f5ef2b93c54beb8e13a40121"
     },
     "godotsteam/godotsteam.cpp": {
-      "downstream": "c17ce83b1877439426515ee8e6d65ae446c12d3d06880debe1657dd52438cd76",
+      "downstream": "e6dc07e21cc71eea245d2a4aaf680f0747496cb0af77a49105a2314d944d322e",
       "upstream": "51be1d0f6e58ec36bb0e52646aec41ae841d8e6f8d38a16abb59257d73ea9963"
     },
     "godotsteam/godotsteam.h": {

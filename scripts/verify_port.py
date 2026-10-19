@@ -27,10 +27,13 @@ def main() -> int:
     require(inventory["classes"]["Steam"]["upstream"]["counts"]["signals"] >= 180, "Steam signal inventory is unexpectedly incomplete")
     require(set(inventory["classes"]) == {"Steam", "SteamMultiplayerPeer", "SteamPacketPeer"}, "Native class inventory mismatch")
     # These additions are deliberate fixes; every other upstream difference fails the check.
+    # They expose a new dialog response, existing wrappers/callbacks and omitted SDK origins.
+    switch2_origins = ["A", "B", "X", "Y", "LEFT_BUMPER", "RIGHT_BUMPER", "PLUS",
+                       "MINUS", "CAPTURE", "LEFT_TRIGGER_PULL", "LEFT_TRIGGER_CLICK"]
     additions = {
-        "methods": ["fileLoadDialogResponse"],
+        "methods": sorted(["fileLoadDialogResponse", "getMarketEligibility"]),
         "signals": ["html_browser_restarted"],
-        "constants": [],
+        "constants": sorted("INPUT_ACTION_ORIGIN_SWITCH2_" + name for name in switch2_origins),
         "properties": [],
     }
     for name, entry in inventory["classes"].items():

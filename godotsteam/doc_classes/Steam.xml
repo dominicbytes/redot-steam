@@ -3042,6 +3042,12 @@
 				Returns nickname the current user has set for the specified player. Returns NULL if the no nickname has been set for that player.
 			</description>
 		</method>
+		<method name="getMarketEligibility">
+			<return type="void" />
+			<description>
+				Requests the user's Steam Market eligibility. Returns the result through [signal Steam.market_eligibility_response].
+			</description>
+		</method>
 		<method name="getPlayerSteamLevel">
 			<return type="int" />
 			<description>
@@ -10855,6 +10861,28 @@
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_GENERIC_MISC8" value="494" enum="InputActionOrigin">
 		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_A" value="495" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_B" value="496" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_X" value="497" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_Y" value="498" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_LEFT_BUMPER" value="499" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_BUMPER" value="500" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_PLUS" value="501" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_MINUS" value="502" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_CAPTURE" value="503" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_PULL" value="504" enum="InputActionOrigin">
+		</constant>
+		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_CLICK" value="505" enum="InputActionOrigin">
+		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_PULL" value="506" enum="InputActionOrigin">
 		</constant>
 		<constant name="INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_CLICK" value="507" enum="InputActionOrigin">
@@ -12795,8 +12823,9 @@
 		<constant name="REMOTE_STORAGE_PLATFORM_IOS" value="64" enum="RemoteStoragePlatform" is_bitfield="true">
 			This file will download on iOS.
 		</constant>
-		<constant name="REMOTE_STORAGE_PLATFORM_ALL" value="4294967295" enum="RemoteStoragePlatform" is_bitfield="true">
+		<constant name="REMOTE_STORAGE_PLATFORM_ALL" value="-1" enum="RemoteStoragePlatform" is_bitfield="true">
 			This file will download on every platform. This is the default.
+			The signed value -1 represents all 32 platform mask bits.
 		</constant>
 		<constant name="REMOTE_STORAGE_PUBLISHED_VISIBILITY_PUBLIC" value="0" enum="RemoteStoragePublishedFileVisibility">
 			Visible to everyone.
