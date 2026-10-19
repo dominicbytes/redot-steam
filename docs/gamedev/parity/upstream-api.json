@@ -12545,7 +12545,7 @@
       "upstream": "51be1d0f6e58ec36bb0e52646aec41ae841d8e6f8d38a16abb59257d73ea9963"
     },
     "godotsteam/godotsteam_multiplayer_peer.cpp": {
-      "downstream": "17331d6e7dbac795b3a33a43932f851fb299a6b746713cca7caee66c7844e87b",
+      "downstream": "6d2155c6a68bb1e07a30e8976e778206f9b794d55dfb51f623d0b7e3b1497ed7",
       "upstream": "17331d6e7dbac795b3a33a43932f851fb299a6b746713cca7caee66c7844e87b"
     },
     "godotsteam/steam_packet_peer.cpp": {

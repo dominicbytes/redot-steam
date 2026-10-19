@@ -118,10 +118,15 @@ bool SteamMultiplayerPeer::_is_server_relay_supported() const {
 }
 
 void SteamMultiplayerPeer::_poll() {
+	int remaining = SteamProjectSettings::get_max_queued_packets() - incoming_packets.size();
+	if (remaining <= 0) {
+		return;
+	}
+	int receive_count = remaining < MAX_MESSAGE_COUNT ? remaining : MAX_MESSAGE_COUNT;
 	SteamNetworkingMessage_t *messages[MAX_MESSAGE_COUNT];
 	int number_messages = SteamAPI_ISteamNetworkingSockets_ReceiveMessagesOnPollGroup(
 			SteamAPI_SteamNetworkingSockets_SteamAPI(),
-			poll_group, messages, MAX_MESSAGE_COUNT
+			poll_group, messages, receive_count
 			);
 	if (number_messages == 0) {
 		return;
@@ -130,25 +135,25 @@ void SteamMultiplayerPeer::_poll() {
 	for (int i = 0; i < number_messages; i++) {
 		SteamNetworkingMessage_t *message = messages[i];
 
-		if (SteamAPI_ISteamNetworkingSockets_GetConnectionUserData(
-				SteamAPI_SteamNetworkingSockets_SteamAPI(), message->m_conn) <= 0) {
-			// Do we have any pending peers waiting for a peer_id
-			if (steam_connections.has(message->m_conn)) {
-				if (steam_connections[message->m_conn]->process_ping(message) == OK) {
-					if (steam_connections[message->m_conn]->get_state() ==
-							SteamPacketPeer::STATE_CONNECTED) {
-						_upgrade_peer(message->m_conn);
-					}
-				}
-			} else {
-				if (unlikely(debug_level > DEBUG_LEVEL_NONE)) {
-					WARN_PRINT("Packet received with no associated peer.");
-				}
-			}
-
+		if (!steam_connections.has(message->m_conn)) {
 			SteamAPI_SteamNetworkingMessage_t_Release(message);
+			continue;
+		}
+
+		Ref<SteamPacketPeer> peer = steam_connections[message->m_conn];
+		uint32_t peer_id = peer->get_peer_id();
+		if (peer_id != 0) {
+			// User data may already contain an ID before admission, or after rejection.
+			if (peers.has(peer_id) && peers[peer_id]->get_connection_handle() == message->m_conn) {
+				incoming_packets.push_back(message);
+			} else {
+				SteamAPI_SteamNetworkingMessage_t_Release(message);
+			}
 		} else {
-			incoming_packets.push_back(message);
+			if (peer->process_ping(message) == OK) {
+				_upgrade_peer(message->m_conn);
+			}
+			SteamAPI_SteamNetworkingMessage_t_Release(message);
 		}
 	}
 }
@@ -180,10 +185,13 @@ void SteamMultiplayerPeer::network_connection_status_changed(
 			if (p_status_change->m_eOldState ==
 					k_ESteamNetworkingConnectionState_Connected) {
 				uint32_t connection_peer_id = p_status_change->m_info.m_nUserData;
-				_disconnect_peer(connection_peer_id, true);
-				// Erase directly from the status_change in case it was a lingering connection.
-				steam_connections.erase(p_status_change->m_hConn);
+				if (peers.has(connection_peer_id) &&
+						peers[connection_peer_id]->get_connection_handle() == p_status_change->m_hConn) {
+					_disconnect_peer(connection_peer_id, true);
+				}
 			}
+			// Rejected and pending connections must not disconnect the ID they claimed.
+			steam_connections.erase(p_status_change->m_hConn);
 
 			// Clean up the connection, but the reason does not matter since it was
 			// closed on the other end
@@ -371,6 +379,7 @@ void SteamMultiplayerPeer::lobby_chat_update(LobbyChatUpdate_t *p_chat_update) {
 void SteamMultiplayerPeer::_close() {
 	connection_status = CONNECTION_DISCONNECTED;
 	server = false;
+	expected_host_steam_id = 0;
 
 	// This worked find in 4.17 with 4.4 godot-cpp branch but now will no longer compile
 //	if (Engine::get_singleton()->get_singleton_object("Steam") == nullptr) {
@@ -507,6 +516,7 @@ Error SteamMultiplayerPeer::create_host(int p_virtual_port) {
 	ERR_FAIL_COND_V(connection_status != CONNECTION_DISCONNECTED, ERR_ALREADY_IN_USE);
 
 	server = true;
+	expected_host_steam_id = 0;
 	unique_id = 1; // Server is always peer ID 1
 
 	Error socket_created = _create_listen_socket(p_virtual_port);
@@ -524,6 +534,7 @@ Error SteamMultiplayerPeer::create_client(uint64_t p_host_steam_id, int p_virtua
 	ERR_FAIL_COND_V(connection_status != CONNECTION_DISCONNECTED, ERR_ALREADY_IN_USE);
 
 	server = false;
+	expected_host_steam_id = p_host_steam_id;
 	connection_retries = 0;
 	unique_id = generate_unique_id();
 
@@ -575,16 +586,32 @@ void SteamMultiplayerPeer::_add_pending_peer(
 
 void SteamMultiplayerPeer::_upgrade_peer(
 		HSteamNetConnection p_connection_handle) {
-	if (steam_connections.has(p_connection_handle)) {
-		peers[steam_connections[p_connection_handle]->get_peer_id()] =
-				steam_connections[p_connection_handle];
-		// Since we have at least one peer connected, let's upgrade our connection
-		// status
-		if (connection_status == CONNECTION_CONNECTING) {
-			connection_status = CONNECTION_CONNECTED;
-		}
-		emit_signal("peer_connected", steam_connections[p_connection_handle]->get_peer_id());
+	if (!steam_connections.has(p_connection_handle)) {
+		return;
 	}
+
+	Ref<SteamPacketPeer> peer = steam_connections[p_connection_handle];
+	uint32_t peer_id = peer->get_peer_id();
+	if (peers.has(peer_id) && peers[peer_id]->get_connection_handle() == p_connection_handle) {
+		return;
+	}
+	if (peer_id == 0 || peer_id > INT32_MAX || peer_id == (uint32_t)unique_id || peers.has(peer_id) ||
+			(peer_id == 1 && (server || expected_host_steam_id == 0 || peer->get_steam_id() != expected_host_steam_id))) {
+		// Clear untrusted user data before closing; callbacks may still reference it.
+		peer->set_peer_id(0);
+		peer->disconnect_peer(true);
+		steam_connections.erase(p_connection_handle);
+		return;
+	}
+	if (peer->get_state() != SteamPacketPeer::STATE_CONNECTED) {
+		return;
+	}
+
+	peers[peer_id] = peer;
+	if (connection_status == CONNECTION_CONNECTING) {
+		connection_status = CONNECTION_CONNECTED;
+	}
+	emit_signal("peer_connected", peer_id);
 }
 
 Ref<SteamPacketPeer> SteamMultiplayerPeer::get_peer(int p_peer_id) {

@@ -50,6 +50,7 @@ public:
 	static bool get_embed_callbacks();
 	static int get_id_in_use();
 	static int get_max_channels();
+	static int get_max_queued_packets();
 	static int get_playtest_id();
 	static int get_tool_id();
 };

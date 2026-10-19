@@ -69,6 +69,7 @@ private:
 	int unique_id = 0;
 	ConnectionStatus connection_status = CONNECTION_DISCONNECTED;
 	bool server = false;
+	uint64_t expected_host_steam_id = 0;
 	int connection_retries = 0;
 
 	bool no_nagle = false;
