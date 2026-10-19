@@ -46,6 +46,39 @@ def extract_cpp(text: str) -> dict[str, list[str]]:
     }
 
 
+def extract_declarations(text: str, class_name: str) -> list[str]:
+    # Compare tokenized public sections, including types, defaults and enum values.
+    # Comment and whitespace changes do not alter the declaration contract.
+    text = re.sub(r"//[^\n]*|/\*.*?\*/", "", text, flags=re.S)
+    match = re.search(r"class\s+" + re.escape(class_name) + r"\s*:[^{]+\{", text)
+    if not match:
+        raise AssertionError(f"missing class declaration: {class_name}")
+    tokens = re.findall(r'"(?:\\.|[^"\\])*"|[A-Za-z_][A-Za-z_0-9]*|[0-9]+|[^\s]', text[match.end():])
+    depth, public, sections, current = 1, False, [], []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if depth == 1 and token in ("public", "protected", "private") and tokens[index + 1] == ":":
+            if current:
+                sections.append(" ".join(current))
+                current = []
+            public = token == "public"
+            index += 2
+            continue
+        if token == "}":
+            depth -= 1
+            if depth == 0:
+                if current:
+                    sections.append(" ".join(current))
+                return sections
+        if public:
+            current.append(token)
+        if token == "{":
+            depth += 1
+        index += 1
+    raise AssertionError(f"unterminated class declaration: {class_name}")
+
+
 def extract_docs(text: str) -> dict[str, list[str]]:
     root = ET.fromstring(text)
     section = lambda name, child: sorted(node.attrib["name"] for node in root.findall(f"./{name}/{child}"))
@@ -110,7 +143,8 @@ def build_inventory() -> dict:
     all_exact = True
     for name, source in CLASS_SOURCES.items():
         documentation = f"godotsteam/doc_classes/{name}.xml"
-        tracked_files.extend((source, documentation))
+        header = source.removesuffix(".cpp") + ".h"
+        tracked_files.extend((source, header, documentation))
         upstream = summarize(
             extract_cpp(upstream_bytes(source).decode("utf-8")),
             extract_docs(upstream_bytes(documentation).decode("utf-8")),
@@ -119,7 +153,11 @@ def build_inventory() -> dict:
             extract_cpp((ROOT / source).read_text(encoding="utf-8")),
             extract_docs((ROOT / documentation).read_text(encoding="utf-8")),
         )
+        upstream["declarations"] = extract_declarations(upstream_bytes(header).decode("utf-8"), name)
+        downstream["declarations"] = extract_declarations((ROOT / header).read_text(encoding="utf-8"), name)
         parity = compare(upstream, downstream)
+        parity["declarations_exact"] = upstream["declarations"] == downstream["declarations"]
+        parity["exact"] = parity["exact"] and parity["declarations_exact"]
         all_exact = all_exact and parity["exact"]
         classes[name] = {
             "source": source,
@@ -137,7 +175,7 @@ def build_inventory() -> dict:
     all_exact = all_exact and manifest_exact
 
     return {
-        "schema": 2,
+        "schema": 3,
         "oracle": {
             "repository": "https://codeberg.org/godotsteam/godotsteam",
             "commit": UPSTREAM_COMMIT,
@@ -178,13 +216,13 @@ def main() -> int:
     content = json.dumps(build_inventory(), indent=2, sort_keys=True) + "\n"
     if args.check:
         if not OUTPUT.exists() or OUTPUT.read_text(encoding="utf-8") != content:
-            print(f"Parity inventory is stale: {OUTPUT}", file=sys.stderr)
+            print(f"Parity inventory is stale: {OUTPUT.relative_to(ROOT)}", file=sys.stderr)
             return 1
-        print(f"Parity inventory verified: {OUTPUT}")
+        print(f"Parity inventory verified: {OUTPUT.relative_to(ROOT)}")
         return 0
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(content, encoding="utf-8")
-    print(f"Wrote {OUTPUT}")
+    print(f"Wrote {OUTPUT.relative_to(ROOT)}")
     return 0
 
 
