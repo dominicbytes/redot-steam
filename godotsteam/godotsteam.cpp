@@ -4095,7 +4095,7 @@ Dictionary Steam::getFakeIP(int first_port) {
 	PackedInt32Array ports;
 	ports.resize(SteamNetworkingFakeIPResult_t::k_nMaxReturnPorts);
 	for (size_t i = 0; i < SteamNetworkingFakeIPResult_t::k_nMaxReturnPorts; i++) {
-		ports.append(fake_ip_result.m_unPorts[i]);
+		ports.set(i, fake_ip_result.m_unPorts[i]);
 	}
 	fake_ip["ports"] = ports;
 	return fake_ip;
@@ -4516,15 +4516,16 @@ bool Steam::destroyBeacon(uint64_t beacon_id) {
 Array Steam::getAvailableBeaconLocations(uint32_t max_locations) {
 	Array beacon_locations;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamParties() == nullptr, beacon_locations, "Parties class not found, Steam may not be initialized: getAvailableBeaconLocations");
+	if (max_locations == 0) {
+		return beacon_locations;
+	}
 	uint32_t locations = 0;
-	SteamPartyBeaconLocation_t beacons[256];
-	if (SteamAPI_ISteamParties_GetNumAvailableBeaconLocations(SteamAPI_SteamParties(), &locations)) {
-		if (max_locations < locations) {
-			max_locations = locations;
-		}
-
-		if (SteamAPI_ISteamParties_GetAvailableBeaconLocations(SteamAPI_SteamParties(), beacons, max_locations)) {
-			for (uint32_t i = 0; i < max_locations; i++) {
+	if (SteamAPI_ISteamParties_GetNumAvailableBeaconLocations(SteamAPI_SteamParties(), &locations) && locations > 0) {
+		ERR_FAIL_COND_V_MSG(locations > INT32_MAX / sizeof(SteamPartyBeaconLocation_t), beacon_locations, "Beacon location count exceeds maximum buffer size: getAvailableBeaconLocations");
+		std::vector<SteamPartyBeaconLocation_t> beacons(locations);
+		if (SteamAPI_ISteamParties_GetAvailableBeaconLocations(SteamAPI_SteamParties(), beacons.data(), locations)) {
+			uint32_t returned_locations = max_locations < locations ? max_locations : locations;
+			for (uint32_t i = 0; i < returned_locations; i++) {
 				Dictionary beacon_data;
 				beacon_data["type"] = beacons[i].m_eType;
 				beacon_data["location_id"] = (uint64_t)beacons[i].m_ulLocationID;
@@ -7993,7 +7994,7 @@ void Steam::fake_ip_result(SteamNetworkingFakeIPResult_t *call_data) {
 	PackedInt32Array port_list;
 	port_list.resize(SteamNetworkingFakeIPResult_t::k_nMaxReturnPorts);
 	for (uint16_t i = 0; i < SteamNetworkingFakeIPResult_t::k_nMaxReturnPorts; i++) {
-		port_list.append(call_data->m_unPorts[i]);
+		port_list.set(i, call_data->m_unPorts[i]);
 	}
 	emit_signal("fake_ip_result", result, getSteamIDFromIdentity(call_data->m_identity), getStringFromIP(fake_ip), port_list);
 }
