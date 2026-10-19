@@ -12,7 +12,8 @@
 | Modern candidate commits | v4.19.1-gde `64e022aca284c30a97846fa10470741267c37c94`; v4.20.1-gde `c693f6345ea19ede29b70d43d2166414be68eb0a`; v4.21-gde `807b7c97b9fa35e33406e38977dd6681725a7b4b` |
 | Modern candidate godot-cpp pin | `6388e26dd8a42071f65f764a3ef3d9523dda3d6e` on declared branch `4.4` |
 | License | MIT source; Steamworks SDK restricted/proprietary |
-| Redot target | `26.2.stable.official.4f5b14aba`; full commit `4f5b14abade2239104847d03d8f9056e4467cfcd`; Windows x86_64 binary SHA-256 `10DFBEFC273536F0C65903D6429E531C30133820BF0FA842F2D6E6FB81DB1D42` |
+| Redot binding ABI baseline | `26.2.stable.official.4f5b14aba`; full commit `4f5b14abade2239104847d03d8f9056e4467cfcd`; Windows x86_64 binary SHA-256 `10DFBEFC273536F0C65903D6429E531C30133820BF0FA842F2D6E6FB81DB1D42` |
+| Additional Windows runtime | `26.3.stable.official.85e520394`; commit `85e5203945af15755dd2f66cb6fdf7545fd88c0b`; x86_64 debug/release compatibility smoke using the unchanged 26.2 ABI; Linux 26.3 unverified |
 | Redot extension API | `redot-api/26.2/extension_api.json` SHA-256 `177E7796166929B2193C9CCE2FD32F59601A0147D0D1E7FE904B94E8F69F6577` |
 | Redot extension interface | `redot-api/26.2/gdextension_interface.h` SHA-256 `4CD695E86B92E2BF4E60BBE19CE137FAF41205DA1CF94F29E069AFEC0F7BF320` |
 | Intended public downstream | https://github.com/dominicbytes/redot-steam |

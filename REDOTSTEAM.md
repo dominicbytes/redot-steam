@@ -1,10 +1,20 @@
 # RedotSteam
 
-RedotSteam is the Redot 26.2 port of GodotSteam 4.21. It preserves the upstream `Steam` singleton, native classes, method names, signals, constants, documentation, editor dock, and `addons/godotsteam/` installation path.
+RedotSteam is the Redot 26.2 / 26.3 port of GodotSteam 4.21. It preserves the upstream `Steam` singleton, native classes, method names, signals, constants, documentation, editor dock, and `addons/godotsteam/` installation path.
+
+## Engine compatibility
+
+Use `redot_api_dir=redot-api/26.2` for both engines. The Windows wrapper defaults to this snapshot and accepts `-RedotApiDir` for explicit input selection. Do not replace it with a raw 26.3 API dump: 26.3 adds the `Struct` Variant, which the pinned godot-cpp Variant implementation does not support, and official 26.3 returns null for its extension conversion functions. The APIs used by this extension and editor plugin remain compatible.
+
+The extension manifest keeps `compatibility_minimum = "4.4"`, the binding's GDExtension API floor. It does not use Redot's product version numbering. No maximum is set; later Redot versions still need separate verification.
+
+Windows x86-64 debug and release DLLs are tested on official 26.2 and 26.3 and an unofficial 26.3 build with an engine shutdown fix. Live App ID 480 initialization, callback pumping and shutdown pass; a separate missing-App-ID initialization fails cleanly, native and mock fixtures run, peer objects construct and release, and the editor plugin parses and enables after import and restart. Official 26.3 headless editor shutdown may crash or report RID leaks even without the addon. Initial discovery of a CORE-level extension also needs an editor restart; see `PORT_STATUS.md` for limitations. Native behavior without a running Steam client has not been verified. Mock failure and native missing-App-ID failure were verified instead. Linux runtime verification remains at 26.2; macOS and Android are unverified.
+
+To inspect another engine's API, set `REDOT_BIN` and run `scripts/capture_redot_api.ps1 -OutputDirectory <scratch>`. Dumps go to scratch by default, and a 26.3 dump is rejected if directed at the pinned 26.2 snapshot. `scripts/verify_source_lock.ps1 -RedotBin <REDOT_BIN> -SdkPath <SDK>` recognizes both official Windows engine identities while checking the unchanged binding inputs.
 
 ## Required user-supplied dependencies
 
-- Redot 26.2 LTS.
+- Redot 26.2 LTS or Redot 26.3 stable (Windows x86-64 verified).
 - Steamworks SDK 1.65 supplied by the plugin user.
 - `godot-cpp` commit `6388e26dd8a42071f65f764a3ef3d9523dda3d6e`.
 - SCons 4.x and a supported C++ compiler.

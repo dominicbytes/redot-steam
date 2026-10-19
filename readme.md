@@ -1,8 +1,8 @@
 # RedotSteam
 
-RedotSteam is a Redot 26.2 port of [GodotSteam 4.21](https://codeberg.org/godotsteam/godotsteam). It keeps the upstream `Steam` singleton, native classes, methods, signals, constants, documentation, editor dock, and `addons/godotsteam/` installation path compatible with Redot.
+RedotSteam is a Redot 26.2 / 26.3 port of [GodotSteam 4.21](https://codeberg.org/godotsteam/godotsteam). It keeps the upstream `Steam` singleton, native classes, methods, signals, constants, documentation, editor dock, and `addons/godotsteam/` installation path compatible with Redot.
 
-The current target is `Redot 26.2.stable.official.4f5b14aba`. Windows x86-64 and Linux x86-64/arm64 are required platforms; macOS and Android remain tracked for later completion. Older Redot releases are not a compatibility target.
+The supported Windows runtimes are `Redot 26.2.stable.official.4f5b14aba` and `Redot 26.3.stable.official.85e520394`. Both use the pinned 26.2 binding ABI. Windows x86-64 and Linux x86-64/arm64 are required platforms; macOS and Android remain tracked for later completion. Older Redot releases are not a compatibility target.
 
 ## Status
 
@@ -10,6 +10,7 @@ The current target is `Redot 26.2.stable.official.4f5b14aba`. Windows x86-64 and
 - Windows x86-64 debug/release and Linux x86-64/arm64 debug/release builds pass the alpha gauntlet.
 - The Windows fixture passes a live Steam App ID 480 initialization, callback, and shutdown test.
 - Linux fixtures pass clean no-client load, initialization-failure, shutdown, unload, and process-exit tests.
+- Windows x86-64 debug/release binaries built against the 26.2 ABI also pass live App ID 480 init/callback/shutdown, missing-App-ID failure, native and mock fixture runs, and editor-plugin parsing on 26.3. Official 26.3 has headless editor shutdown defects reproducible without this addon; see [PORT_STATUS.md](PORT_STATUS.md). Linux runtime support on 26.3 has not been verified.
 - Beta verification is blocked only on a private Steam App ID and credentials; see [PORT_STATUS.md](PORT_STATUS.md).
 
 ## Required user-supplied dependency

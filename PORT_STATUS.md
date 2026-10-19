@@ -1,6 +1,6 @@
 # GodotSteam / RedotSteam
 
-Port status for Redot 26.2.
+Port status for Redot 26.2 and 26.3.
 
 ## Current state
 
@@ -10,7 +10,8 @@ Port status for Redot 26.2.
 - Source branch: `gdextension`
 - Upstream commit: `8e0b976d0ae02a23c35daecf32c6b7bfeba0da08`
 - Selected source baseline: Codeberg `gdextension` commit `8e0b976d0ae02a23c35daecf32c6b7bfeba0da08` (GodotSteam 4.21)
-- Redot target: `26.2.stable.official.4f5b14aba`; binary, extension API, and interface hashes locked
+- Binding ABI baseline: `26.2.stable.official.4f5b14aba`; extension API and interface hashes remain locked
+- Additional Windows runtime: `26.3.stable.official.85e520394` (x86_64 debug/release compatibility smoke verified)
 - Intended public downstream: https://github.com/dominicbytes/redot-steam
 - Stable release scope: full practical GodotSteam parity on Redot
 - Required platforms: Windows and Linux
@@ -44,6 +45,14 @@ Port status for Redot 26.2.
 - Next steps: Beta private-app suite, then clean-runner RC reproducibility and GitHub publication
 
 The tracked upstream README is preserved unchanged as `UPSTREAM_README.md`. Port-specific status lives here.
+
+## Redot 26.3 compatibility
+
+The same Windows x86_64 debug/release DLLs use the checked-in 26.2 binding ABI on both engines. Fresh 26.2 dumps match the snapshots byte for byte. The 26.3 interface adds `GDEXTENSION_VARIANT_TYPE_STRUCT` (39); the existing type IDs and interface functions are unchanged. All classes in `build_profile.json`, multiplayer/packet peer virtuals, ProjectSettings and the editor APIs used by `plugin/` retain their existing signatures and hashes; `OS.get_real_path()` is an unused addition. Raw 26.3 bindings are not adopted because the pinned godot-cpp Variant lacks Struct support and official 26.3 provides neither Struct converter.
+
+Windows verification covers native class/singleton registration, App ID 480 initialization/callback pumping/shutdown, missing-App-ID initialization failure, peer construction/release, mock fixtures, editor-plugin parsing/enablement after import and restart, and clean game-process exit on official 26.2, official 26.3 and an unofficial 26.3 build with an engine shutdown fix. Official 26.3 editor shutdown crashes/RID leaks also occur in no-addon controls. They do not occur during the fixture game runs. First discovery/import of this CORE-level extension can crash on 26.2 as well as 26.3; restart loads the registered extension and the plugin then enables without script errors. This pre-existing first-import defect remains open rather than being classified as a new 26.3 failure.
+
+Native behavior without a running Steam client has not been verified. Mock failure and native missing-App-ID failure were verified instead. These checks do not certify live multiplayer, private-app behavior, Linux runtime behavior on 26.3, macOS or Android, or full release qualification. Historical 26.2 Alpha evidence above is separate from this compatibility smoke.
 
 ## Multiplayer peer admission divergence
 

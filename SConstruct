@@ -3,7 +3,7 @@ import os
 
 opts = Variables([], ARGUMENTS)
 
-opts.Add(PathVariable("redot_api_dir", "Directory containing Redot's extension_api.json and gdextension_interface.h.", "redot-api/26.2", PathVariable.PathIsDir))
+opts.Add(PathVariable("redot_api_dir", "Binding ABI snapshot (26.2 is used for both Redot 26.2 and 26.3).", "redot-api/26.2", PathVariable.PathIsDir))
 opts.Add(PathVariable("steam_sdk_path", "Steamworks SDK root containing public/ and redistributable_bin/.", "godotsteam/sdk", PathVariable.PathIsDir))
 opts.Add(BoolVariable("include_steam_runtime", "Copy the Steam API redistributable into the build output for local testing. Public packages leave this disabled.", False))
 opts.Add("linux_cross_zig", "Optional Zig executable used to cross-compile Linux binaries from Windows.", "")
@@ -74,6 +74,14 @@ plugin_argument_names = (
 plugin_arguments = {key: ARGUMENTS.pop(key) for key in plugin_argument_names if key in ARGUMENTS}
 env = SConscript("godot-cpp/SConstruct")
 ARGUMENTS.update(plugin_arguments)
+
+# Keep source and SDK locations out of __FILE__ strings and debug information.
+# The returned environment is also used by the godot-cpp library builders.
+for source_root, mapped_root in ((os.path.abspath("."), "."), (os.path.abspath(env["steam_sdk_path"]), "steamworks-sdk")):
+	if env.get("is_msvc", False):
+		env.Append(CCFLAGS=["/d1trimfile:" + source_root + os.sep])
+	else:
+		env.Append(CCFLAGS=["-ffile-prefix-map=" + source_root.replace("\\", "/") + "=" + mapped_root])
 
 if os.name == "nt" and requested_platform == "linux" and env["linux_cross_zig"]:
 	# Zig's target triple already selects the architecture; Godot's GCC-specific
