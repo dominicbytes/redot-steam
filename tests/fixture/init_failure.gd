@@ -20,5 +20,9 @@ func _initialize() -> void:
 		peer = null
 		failed_cleanly = failed_cleanly and weak_peer.get_ref() == null
 	print("REDOTSTEAM_MISSING_APP_ID=%s" % JSON.stringify(result))
-	print("REDOTSTEAM_INIT_FAILURE=%s" % ("PASS" if failed_cleanly else "FAIL"))
+	var report := {
+		"failure_count": 0 if failed_cleanly else 1,
+		"failures": [] if failed_cleanly else ["Initialization failure or peer release check failed"],
+	}
+	print("REDOTSTEAM_INIT_FAILURE=%s" % JSON.stringify(report))
 	quit(0 if failed_cleanly else 1)

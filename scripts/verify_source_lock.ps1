@@ -44,3 +44,8 @@ if (-not $checks.steamworks_165_features) { throw "Steamworks SDK does not expos
 if ($checks.godot_cpp_commit -ne "6388e26dd8a42071f65f764a3ef3d9523dda3d6e") { throw "godot-cpp pin mismatch" }
 if (-not $engineHashes.ContainsKey($checks.redot_version) -or $checks.redot_sha256 -notin $engineHashes[$checks.redot_version]) { throw "Redot binary version/hash mismatch" }
 if ($checks.extension_api_sha256 -ne "177E7796166929B2193C9CCE2FD32F59601A0147D0D1E7FE904B94E8F69F6577") { throw "Redot API hash mismatch" }
+
+if ($checks.gdextension_interface_sha256 -ne "4CD695E86B92E2BF4E60BBE19CE137FAF41205DA1CF94F29E069AFEC0F7BF320") { throw "Redot interface hash mismatch" }
+
+python (Join-Path $PSScriptRoot "verify_sdk_lock.py") --sdk-path $sdkRoot
+if ($LASTEXITCODE -ne 0) { throw "Steamworks SDK input lock mismatch" }

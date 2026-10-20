@@ -20,5 +20,6 @@ jobs:
           python-version: "3.12"
       - run: python scripts/generate_parity_inventory.py --check
       - run: python scripts/verify_port.py
+      - run: python -m unittest discover -s tests/scripts -v
       - run: python tests/native/run_tests.py
       - run: python tests/native/test_lane_bounds.py
