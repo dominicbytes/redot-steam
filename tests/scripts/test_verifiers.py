@@ -232,7 +232,6 @@ class InventoryAndManifestTests(unittest.TestCase):
                 with self.assertRaises(AssertionError):
                     sdk_lock.verify_sdk(root / "sdk")
 
-
     def test_sdk_admission_normalizes_only_designated_text(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -282,12 +281,67 @@ class PowerShellTests(unittest.TestCase):
                 (root / "scripts").mkdir()
                 script = root / "scripts/run_gauntlet.ps1"
                 shutil.copyfile(ROOT / "scripts/run_gauntlet.ps1", script)
+                shutil.copyfile(ROOT / "scripts/evidence_text.ps1", script.with_name("evidence_text.ps1"))
                 env = dict(os.environ, REDOTSTEAM_PRIVATE_APP_ID="anything", REDOTSTEAM_REPRO_EVIDENCE="anything", REDOTSTEAM_INDEPENDENT_EVIDENCE="anything")
                 for stage in ("beta", "rc", "stable-prep"):
                     result = subprocess.run([shell, "-NoProfile", "-File", str(script), "-Stage", stage, "-EvidenceRoot", "evidence"], env=env, capture_output=True, text=True, timeout=30)
                     self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
                     gate = json.loads((root / f"evidence/{stage}/gate-{stage}.json").read_text(encoding="utf-8-sig"))
                     self.assertEqual(gate["status"], "BLOCKED")
+
+    def test_failing_gauntlet_scrubs_every_evidence_file(self):
+        for shell in SHELLS:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                shutil.copytree(ROOT / "scripts", root / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+                (root / "scripts/verify_port.py").write_text("import os, tempfile\nprint(__file__)\nprint(os.environ.get('USERPROFILE', ''))\nprint(tempfile.gettempdir())\nprint(chr(81) + ':' + chr(92) + 'other folder' + chr(92) + 'file')\n", encoding="utf-8")
+                evidence = root / "evidence"
+                result = subprocess.run([shell, "-NoProfile", "-File", str(root / "scripts/run_gauntlet.ps1"), "-RedotBin", str(root / "missing-engine"), "-SdkPath", str(root / "missing-sdk"), "-DockerPath", str(root / "missing-docker"), "-Artifact", str(root / "missing.zip"), "-EvidenceRoot", str(evidence)], capture_output=True, text=True, timeout=60)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                gate = json.loads((evidence / "alpha/gate-alpha.json").read_text(encoding="utf-8-sig"))
+                self.assertEqual(gate["status"], "FAIL")
+                checks = {check["name"]: check for check in gate["checks"]}
+                for name in ("source-lock", "mock-runtime", "windows-native-runtime", "linux-x86_64-native-runtime", "linux-arm64-native-runtime", "package", "engine-version"):
+                    self.assertEqual(checks[name]["status"], "FAIL")
+                    self.assertTrue((evidence / "alpha" / checks[name]["log"]).is_file())
+                self.assertEqual(checks["source"]["status"], "PASS")
+                files = list(evidence.rglob("*"))
+                self.assertGreaterEqual(sum(path.is_file() for path in files), 10)
+                for path in files:
+                    if path.is_file():
+                        text = path.read_text(encoding="utf-8-sig")
+                        with self.subTest(file=path.name):
+                            self.assertNotRegex(text, r"[A-Za-z]:[\\/]|\\\\|(?<![\w/>:])/(?!/)")
+                            self.assertNotIn(str(root), text)
+                            for name in ("USERPROFILE", "TEMP", "TMP"):
+                                if os.environ.get(name):
+                                    self.assertNotIn(os.environ[name], text)
+
+    def test_sanitizer_handles_output_and_unformatted_exceptions(self):
+        for shell in SHELLS:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                helper = root / "evidence_text.ps1"
+                shutil.copyfile(ROOT / "scripts/evidence_text.ps1", helper)
+                # Assemble synthetic rooted paths without embedding machine details.
+                private = [str(root / "repo/long folder"), str(root / "sdk"), str(root / "engine"), chr(81) + ":" + chr(92) + "other folder" + chr(92) + "file", chr(92) * 2 + "server" + chr(92) + "share" + chr(92) + "file", "/" + "opt/private/file"]
+                payload = root / "input.json"
+                payload.write_text(json.dumps(private), encoding="utf-8")
+                script = root / "probe.ps1"
+                script.write_text('''param($Helper, $Payload)
+. $Helper
+$paths = Get-Content -Raw -LiteralPath $Payload | ConvertFrom-Json
+foreach ($path in $paths) {
+    "child output: $path" | ConvertTo-EvidenceText -PrivatePaths $paths
+    try { throw "child failure: $path" } catch { $_ | ConvertTo-EvidenceText -PrivatePaths $paths }
+}
+''', encoding="utf-8")
+                result = subprocess.run([shell, "-NoProfile", "-File", str(script), str(helper), str(payload)], capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(len(result.stdout.splitlines()), len(private) * 2)
+                for path in private:
+                    self.assertNotIn(path, result.stdout)
+                self.assertNotRegex(result.stdout, r"[A-Za-z]:[\\/]|\\\\|(?<![\w/>:])/(?!/)")
 
     def test_package_normalizes_relative_parent_and_rooted_paths(self):
         for shell in SHELLS:
@@ -302,6 +356,8 @@ class PowerShellTests(unittest.TestCase):
                 for build in ("../build/addon", str(root / "build/addon")):
                     result = subprocess.run([shell, "-NoProfile", "-File", str(script), "-Version", "test", "-BuildRoot", build, "-OutputDirectory", str(root / "packages")], capture_output=True, text=True, timeout=30)
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertRegex(result.stdout.strip(), r"^[A-F0-9]{64}  redotsteam-test-addon[.]zip$")
+                    self.assertEqual(result.stderr, "")
                     with zipfile.ZipFile(root / "packages/redotsteam-test-addon.zip") as package:
                         self.assertEqual([info.filename for info in package.infolist() if not info.is_dir()], ["addons/godotsteam/marker.txt"])
 

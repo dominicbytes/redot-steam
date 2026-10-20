@@ -18,7 +18,7 @@ $staging = Join-Path $packageRoot "addons/godotsteam"
 if (Test-Path -LiteralPath $packageRoot) {
     $resolvedPackageRoot = (Resolve-Path -LiteralPath $packageRoot).Path
     $expectedRoot = (Join-Path $projectRoot ".work/package")
-    if ($resolvedPackageRoot -ne $expectedRoot) { throw "Refusing to clear unexpected package staging path: $resolvedPackageRoot" }
+    if ($resolvedPackageRoot -ne $expectedRoot) { throw "Refusing to clear unexpected package staging directory." }
     Remove-Item -LiteralPath $resolvedPackageRoot -Recurse -Force
 }
 New-Item -ItemType Directory -Force -Path $staging | Out-Null
@@ -42,5 +42,6 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 $archive = Join-Path $output "redotsteam-$Version-addon.zip"
 Compress-Archive -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $staging)) "addons") -DestinationPath $archive -Force
 $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $archive
-"$($hash.Hash)  $(Split-Path -Leaf $archive)" | Set-Content -LiteralPath (Join-Path $output "SHA256SUMS") -Encoding ascii
-$hash
+$checksum = "$($hash.Hash)  $(Split-Path -Leaf $archive)"
+$checksum | Set-Content -LiteralPath (Join-Path $output "SHA256SUMS") -Encoding ascii
+$checksum
