@@ -3642,26 +3642,44 @@ Dictionary Steam::createSocketPair(bool loopback, uint64_t remote_steam_id1, uin
 PackedInt64Array Steam::sendMessages(uint32_t connection_handle, Array messages, int flags, bool delete_failed_messages) {
 	PackedInt64Array message_results;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, message_results, "Networking Sockets class not found, Steam may not be initialized: sendMessages");
+	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, message_results, "Networking Utils class not found, Steam may not be initialized: sendMessages");
+	ERR_FAIL_COND_V_MSG(messages.size() > INT32_MAX, message_results, "Too many messages: sendMessages");
+	int total_messages = (int)messages.size();
+	if (total_messages == 0) {
+		return message_results;
+	}
+	for (int i = 0; i < total_messages; i++) {
+		ERR_FAIL_COND_V_MSG(messages[i].get_type() != Variant::PACKED_BYTE_ARRAY, message_results, "Messages must be PackedByteArray values: sendMessages");
+		PackedByteArray payload = messages[i];
+		ERR_FAIL_COND_V_MSG(payload.size() > k_cbMaxSteamNetworkingSocketsMessageSizeSend, message_results, "Message exceeds maximum send size: sendMessages");
+	}
 
-	size_t total_messages = messages.size();
-	SteamNetworkingMessage_t **sent_messages = new SteamNetworkingMessage_t *[total_messages];
-	for (size_t i = 0; i < total_messages; i++) {
-		SteamNetworkingMessage_t *message = SteamAPI_ISteamNetworkingUtils_AllocateMessage(SteamAPI_SteamNetworkingUtils_SteamAPI(), sizeof(messages[i]));
-		message->m_pData = messages[i];
+	std::vector<SteamNetworkingMessage_t *> sent_messages(total_messages, nullptr);
+	std::vector<int64> messages_output(total_messages);
+	for (int i = 0; i < total_messages; i++) {
+		PackedByteArray payload = messages[i];
+		SteamNetworkingMessage_t *message = SteamAPI_ISteamNetworkingUtils_AllocateMessage(SteamAPI_SteamNetworkingUtils_SteamAPI(), (int)payload.size());
+		if (message == nullptr) {
+			for (int j = 0; j < i; j++) {
+				SteamAPI_SteamNetworkingMessage_t_Release(sent_messages[j]);
+			}
+			ERR_FAIL_V_MSG(message_results, "Failed to allocate message: sendMessages");
+		}
+		if (payload.size() > 0) {
+			memcpy(message->m_pData, payload.ptr(), payload.size());
+		}
 		message->m_conn = (HSteamNetConnection)connection_handle;
 		message->m_nFlags = flags;
-
 		sent_messages[i] = message;
-		SteamAPI_SteamNetworkingMessage_t_Release(message);
 	}
 
-	int64 *messages_output = new int64[total_messages];
-	SteamAPI_ISteamNetworkingSockets_SendMessages(SteamAPI_SteamNetworkingSockets_SteamAPI(), total_messages, sent_messages, messages_output, delete_failed_messages);
-
-	for (size_t i = 0; i < total_messages; i++) {
+	SteamAPI_ISteamNetworkingSockets_SendMessages(SteamAPI_SteamNetworkingSockets_SteamAPI(), total_messages, sent_messages.data(), messages_output.data(), delete_failed_messages);
+	for (int i = 0; i < total_messages; i++) {
+		if (!delete_failed_messages && sent_messages[i] != nullptr) {
+			SteamAPI_SteamNetworkingMessage_t_Release(sent_messages[i]);
+		}
 		message_results.append((int64_t)messages_output[i]);
 	}
-	delete[] messages_output;
 	return message_results;
 }
 
@@ -3800,11 +3818,15 @@ Dictionary Steam::getConnectionInfo(uint32_t connection_handle) {
 Dictionary Steam::getDetailedConnectionStatus(uint32_t connection) {
 	Dictionary connection_status;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, connection_status, "Networking Sockets class not found, Steam may not be initialized: getDetailedConnectionStatus");
-	char buffer[STEAM_LARGE_BUFFER_SIZE];
-	int success = SteamAPI_ISteamNetworkingSockets_GetDetailedConnectionStatus(SteamAPI_SteamNetworkingSockets_SteamAPI(), (HSteamNetConnection)connection, buffer, STEAM_LARGE_BUFFER_SIZE);
-
+	PackedByteArray buffer;
+	ERR_FAIL_COND_V_MSG(buffer.resize(STEAM_LARGE_BUFFER_SIZE) != OK, connection_status, "Failed to allocate status buffer: getDetailedConnectionStatus");
+	int success = SteamAPI_ISteamNetworkingSockets_GetDetailedConnectionStatus(SteamAPI_SteamNetworkingSockets_SteamAPI(), (HSteamNetConnection)connection, (char *)buffer.ptrw(), (int)buffer.size());
+	if (success > 0) {
+		ERR_FAIL_COND_V_MSG(buffer.resize(success) != OK, connection_status, "Failed to allocate status buffer: getDetailedConnectionStatus");
+		success = SteamAPI_ISteamNetworkingSockets_GetDetailedConnectionStatus(SteamAPI_SteamNetworkingSockets_SteamAPI(), (HSteamNetConnection)connection, (char *)buffer.ptrw(), (int)buffer.size());
+	}
 	connection_status["success"] = success;
-	connection_status["status"] = buffer;
+	connection_status["status"] = success == 0 ? String((const char *)buffer.ptr()) : String();
 	return connection_status;
 }
 
@@ -3843,7 +3865,9 @@ String Steam::getListenSocketAddress(uint32_t socket, bool with_port) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, socket_address, "Networking Sockets class not found, Steam may not be initialized: getListenSocketAddress");
 	SteamNetworkingIPAddr address;
 	if (SteamAPI_ISteamNetworkingSockets_GetListenSocketAddress(SteamAPI_SteamNetworkingSockets_SteamAPI(), (HSteamListenSocket)socket, &address)) {
-		socket_address = getStringFromSteamIP(address);
+		char buffer[SteamNetworkingIPAddr::k_cchMaxString]{};
+		SteamAPI_SteamNetworkingIPAddr_ToString(&address, buffer, sizeof(buffer), with_port);
+		socket_address = buffer;
 	}
 	return socket_address;
 }
@@ -4008,7 +4032,7 @@ Dictionary Steam::getCertificateRequest() {
 	PackedByteArray certificate;
 	certificate.resize(512);
 	int cert_size = certificate.size();
-	SteamNetworkingErrMsg error_message;
+	SteamNetworkingErrMsg error_message{};
 	if (SteamAPI_ISteamNetworkingSockets_GetCertificateRequest(SteamAPI_SteamNetworkingSockets_SteamAPI(), &cert_size, certificate.ptrw(), error_message)) {
 		certificate.resize(cert_size);
 		cert_information["certificate"] = certificate;
@@ -4021,13 +4045,11 @@ Dictionary Steam::getCertificateRequest() {
 Dictionary Steam::setCertificate(const PackedByteArray &certificate) {
 	Dictionary certificate_data;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, certificate_data, "Networking Sockets class not found, Steam may not be initialized: setCertificate");
-	bool success = false;
-	SteamNetworkingErrMsg error_message;
-
-	if (SteamAPI_ISteamNetworkingSockets_SetCertificate(SteamAPI_SteamNetworkingSockets_SteamAPI(), (void *)certificate.ptr(), certificate.size(), error_message)) {
-		certificate_data["response"] = success;
-		certificate_data["error"] = error_message;
-	}
+	ERR_FAIL_COND_V_MSG(certificate.size() > INT32_MAX, certificate_data, "Certificate exceeds maximum size: setCertificate");
+	SteamNetworkingErrMsg error_message{};
+	bool success = SteamAPI_ISteamNetworkingSockets_SetCertificate(SteamAPI_SteamNetworkingSockets_SteamAPI(), certificate.ptr(), (int)certificate.size(), error_message);
+	certificate_data["response"] = success;
+	certificate_data["error"] = error_message;
 	return certificate_data;
 }
 
@@ -4073,7 +4095,7 @@ Dictionary Steam::getFakeIP(int first_port) {
 	PackedInt32Array ports;
 	ports.resize(SteamNetworkingFakeIPResult_t::k_nMaxReturnPorts);
 	for (size_t i = 0; i < SteamNetworkingFakeIPResult_t::k_nMaxReturnPorts; i++) {
-		ports.append(fake_ip_result.m_unPorts[i]);
+		ports.set(i, fake_ip_result.m_unPorts[i]);
 	}
 	fake_ip["ports"] = ports;
 	return fake_ip;
@@ -4175,15 +4197,11 @@ int Steam::estimatePingTimeBetweenTwoLocations(PackedByteArray location1, Packed
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, 0, "Networking Utils class not found, Steam may not be initialized: estimatePingTimeBetweenTwoLocations");
 	SteamNetworkPingLocation_t ping_location1;
 	SteamNetworkPingLocation_t ping_location2;
-	uint8_t *input_location_1 = (uint8_t *)location1.ptr();
-	for (int j = 0; j < 512; j++) {
-		ping_location1.m_data[j] = input_location_1[j];
-	}
+	ERR_FAIL_COND_V_MSG(location1.size() != (int64_t)sizeof(ping_location1.m_data), -1, "Invalid ping location size: estimatePingTimeBetweenTwoLocations");
+	memcpy(ping_location1.m_data, location1.ptr(), sizeof(ping_location1.m_data));
 
-	uint8_t *input_location_2 = (uint8_t *)location2.ptr();
-	for (int j = 0; j < 512; j++) {
-		ping_location2.m_data[j] = (uint8_t)input_location_2[j];
-	}
+	ERR_FAIL_COND_V_MSG(location2.size() != (int64_t)sizeof(ping_location2.m_data), -1, "Invalid ping location size: estimatePingTimeBetweenTwoLocations");
+	memcpy(ping_location2.m_data, location2.ptr(), sizeof(ping_location2.m_data));
 	return SteamAPI_ISteamNetworkingUtils_EstimatePingTimeBetweenTwoLocations(SteamAPI_SteamNetworkingUtils_SteamAPI(), ping_location1, ping_location2);
 }
 
@@ -4192,10 +4210,8 @@ int Steam::estimatePingTimeBetweenTwoLocations(PackedByteArray location1, Packed
 int Steam::estimatePingTimeFromLocalHost(PackedByteArray location) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, 0, "Networking Utils class not found, Steam may not be initialized: estimatePingTimeFromLocalHost");
 	SteamNetworkPingLocation_t ping_location;
-	uint8_t *input_location = (uint8_t *)location.ptr();
-	for (int j = 0; j < 512; j++) {
-		ping_location.m_data[j] = input_location[j];
-	}
+	ERR_FAIL_COND_V_MSG(location.size() != (int64_t)sizeof(ping_location.m_data), -1, "Invalid ping location size: estimatePingTimeFromLocalHost");
+	memcpy(ping_location.m_data, location.ptr(), sizeof(ping_location.m_data));
 	return SteamAPI_ISteamNetworkingUtils_EstimatePingTimeFromLocalHost(SteamAPI_SteamNetworkingUtils_SteamAPI(), ping_location);
 }
 
@@ -4206,13 +4222,11 @@ String Steam::convertPingLocationToString(PackedByteArray location) {
 	String location_string = "";
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, location_string, "Networking Utils class not found, Steam may not be initialized: convertPingLocationToString");
 	SteamNetworkPingLocation_t ping_location;
-	uint8_t *input_location = (uint8_t *)location.ptr();
-	for (int j = 0; j < 512; j++) {
-		ping_location.m_data[j] = input_location[j];
-	}
+	ERR_FAIL_COND_V_MSG(location.size() != (int64_t)sizeof(ping_location.m_data), location_string, "Invalid ping location size: convertPingLocationToString");
+	memcpy(ping_location.m_data, location.ptr(), sizeof(ping_location.m_data));
 
-	char buffer[512 + 1]{};
-	SteamAPI_ISteamNetworkingUtils_ConvertPingLocationToString(SteamAPI_SteamNetworkingUtils_SteamAPI(), ping_location, buffer, k_cchMaxSteamNetworkingPingLocationString);
+	char buffer[k_cchMaxSteamNetworkingPingLocationString]{};
+	SteamAPI_ISteamNetworkingUtils_ConvertPingLocationToString(SteamAPI_SteamNetworkingUtils_SteamAPI(), ping_location, buffer, sizeof(buffer));
 	location_string += buffer;
 	return location_string;
 }
@@ -4303,11 +4317,21 @@ Array Steam::getPOPList() {
 Dictionary Steam::getConfigValue(NetworkingConfigValue config_value, NetworkingConfigScope scope_type, uint32_t connection_handle) {
 	Dictionary config_info;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, config_info, "Networking Utils class not found, Steam may not be initialized: getConfigValue");
-	ESteamNetworkingConfigDataType data_type;
-	size_t buffer_size;
+	ESteamNetworkingConfigDataType data_type = (ESteamNetworkingConfigDataType)0;
+	size_t buffer_size = 0;
 	PackedByteArray config_result;
-	NetworkingGetConfigValueResult result = (NetworkingGetConfigValueResult)SteamAPI_ISteamNetworkingUtils_GetConfigValue(SteamAPI_SteamNetworkingUtils_SteamAPI(), (ESteamNetworkingConfigValue)config_value, (ESteamNetworkingConfigScope)scope_type, connection_handle, &data_type, &config_result, &buffer_size);
-
+	NetworkingGetConfigValueResult result = (NetworkingGetConfigValueResult)SteamAPI_ISteamNetworkingUtils_GetConfigValue(SteamAPI_SteamNetworkingUtils_SteamAPI(), (ESteamNetworkingConfigValue)config_value, (ESteamNetworkingConfigScope)scope_type, connection_handle, &data_type, nullptr, &buffer_size);
+	if (result == NETWORKING_GET_CONFIG_VALUE_BUFFER_TOO_SMALL) {
+		ERR_FAIL_COND_V_MSG(buffer_size > INT64_MAX, config_info, "Configuration value exceeds maximum buffer size: getConfigValue");
+		ERR_FAIL_COND_V_MSG(config_result.resize((int64_t)buffer_size) != OK, config_info, "Failed to allocate configuration buffer: getConfigValue");
+		result = (NetworkingGetConfigValueResult)SteamAPI_ISteamNetworkingUtils_GetConfigValue(SteamAPI_SteamNetworkingUtils_SteamAPI(), (ESteamNetworkingConfigValue)config_value, (ESteamNetworkingConfigScope)scope_type, connection_handle, &data_type, config_result.ptrw(), &buffer_size);
+		if ((result == NETWORKING_GET_CONFIG_VALUE_OK || result == NETWORKING_GET_CONFIG_VALUE_OK_INHERITED) && buffer_size <= (size_t)config_result.size()) {
+			config_result.resize((int64_t)buffer_size);
+		}
+		else {
+			config_result.clear();
+		}
+	}
 	config_info["result"] = result;
 	config_info["type"] = data_type;
 	config_info["value"] = config_result;
@@ -4492,15 +4516,16 @@ bool Steam::destroyBeacon(uint64_t beacon_id) {
 Array Steam::getAvailableBeaconLocations(uint32_t max_locations) {
 	Array beacon_locations;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamParties() == nullptr, beacon_locations, "Parties class not found, Steam may not be initialized: getAvailableBeaconLocations");
+	if (max_locations == 0) {
+		return beacon_locations;
+	}
 	uint32_t locations = 0;
-	SteamPartyBeaconLocation_t beacons[256];
-	if (SteamAPI_ISteamParties_GetNumAvailableBeaconLocations(SteamAPI_SteamParties(), &locations)) {
-		if (max_locations < locations) {
-			max_locations = locations;
-		}
-
-		if (SteamAPI_ISteamParties_GetAvailableBeaconLocations(SteamAPI_SteamParties(), beacons, max_locations)) {
-			for (uint32_t i = 0; i < max_locations; i++) {
+	if (SteamAPI_ISteamParties_GetNumAvailableBeaconLocations(SteamAPI_SteamParties(), &locations) && locations > 0) {
+		ERR_FAIL_COND_V_MSG(locations > INT32_MAX / sizeof(SteamPartyBeaconLocation_t), beacon_locations, "Beacon location count exceeds maximum buffer size: getAvailableBeaconLocations");
+		std::vector<SteamPartyBeaconLocation_t> beacons(locations);
+		if (SteamAPI_ISteamParties_GetAvailableBeaconLocations(SteamAPI_SteamParties(), beacons.data(), locations)) {
+			uint32_t returned_locations = max_locations < locations ? max_locations : locations;
+			for (uint32_t i = 0; i < returned_locations; i++) {
 				Dictionary beacon_data;
 				beacon_data["type"] = beacons[i].m_eType;
 				beacon_data["location_id"] = (uint64_t)beacons[i].m_ulLocationID;
@@ -4599,28 +4624,8 @@ void Steam::onReservationCompleted(uint64_t beacon_id, uint64_t steam_id) {
 // hot_x - The X coordinate of the cursor hot spot in pixels, offset from the left of the cursor
 // hot_y - The Y coordinate of the cursor hot spot in pixels, offset from the top of the cursor
 // pitch - The distance between pixel rows in bytes, defaults to nWidth * 4
-Dictionary Steam::createMouseCursor(int width, int height, int hot_x, int hot_y, int pitch) {
-	Dictionary mouse_cursor;
-	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemotePlay() == nullptr, mouse_cursor, "Remote Play class not found, Steam may not be initialized: createMouseCursor");
-	const void *cursor_pixels = nullptr;
-	uint32_t mouse_cursor_id = SteamAPI_ISteamRemotePlay_CreateMouseCursor(SteamAPI_SteamRemotePlay(), width, height, hot_x, hot_y, &cursor_pixels, pitch);
-	mouse_cursor["id"] = mouse_cursor_id;
-
-	unsigned int pixel_count = width * height;
-	PackedByteArray rgba_data;
-	rgba_data.resize(pixel_count * 4);
-	const uint8_t *bgra = (const uint8_t *)cursor_pixels;
-	uint8_t *rgba = rgba_data.ptrw();
-
-	// Loop to swap B and R channels for the image
-	for (unsigned int i = 0; i < pixel_count; i++) {
-		rgba[i * 4 + 0] = bgra[i * 4 + 2]; // R = B
-		rgba[i * 4 + 1] = bgra[i * 4 + 1]; // G = G
-		rgba[i * 4 + 2] = bgra[i * 4 + 0]; // B = R
-		rgba[i * 4 + 3] = bgra[i * 4 + 3]; // A = A
-	}
-	mouse_cursor["cursor_pixels"] = rgba_data;
-	return mouse_cursor;
+Dictionary Steam::createMouseCursor(int, int, int, int, int) {
+	ERR_FAIL_V_MSG(Dictionary(), "Cursor pixel input is required but unsupported: createMouseCursor");
 }
 
 // Make mouse and keyboard input for Remote Play Together sessions available via GetInput() instead of being merged with
@@ -4644,8 +4649,18 @@ Array Steam::getInput(uint32_t max_events) {
 	Array remote_inputs;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemotePlay() == nullptr, remote_inputs, "Remote Play class not found, Steam may not be initialized: getInput");
 
-	RemotePlayInput_t *these_remote_inputs = nullptr;
-	uint32_t returned_inputs = SteamAPI_ISteamRemotePlay_GetInput(SteamAPI_SteamRemotePlay(), these_remote_inputs, max_events);
+	if (max_events == 0) {
+		return remote_inputs;
+	}
+	uint32_t available_inputs = SteamAPI_ISteamRemotePlay_GetInput(SteamAPI_SteamRemotePlay(), nullptr, 0);
+	uint32_t input_count = max_events < available_inputs ? max_events : available_inputs;
+	if (input_count == 0) {
+		return remote_inputs;
+	}
+	ERR_FAIL_COND_V_MSG(input_count > INT32_MAX / sizeof(RemotePlayInput_t), remote_inputs, "Input event count exceeds maximum buffer size: getInput");
+	std::vector<RemotePlayInput_t> these_remote_inputs(input_count);
+	uint32_t returned_inputs = SteamAPI_ISteamRemotePlay_GetInput(SteamAPI_SteamRemotePlay(), these_remote_inputs.data(), input_count);
+	ERR_FAIL_COND_V_MSG(returned_inputs > input_count, remote_inputs, "Input event count exceeds buffer capacity: getInput");
 	for (uint32_t i = 0; i < returned_inputs; i++) {
 		Dictionary new_event;
 		new_event["session_id"] = these_remote_inputs[i].m_unSessionID;
@@ -4874,22 +4889,18 @@ void Steam::fileShare(const String &file) {
 // Write to given file from Steam Cloud.
 bool Steam::fileWrite(const String &file, PackedByteArray data, int32_t size) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemoteStorage() == nullptr, false, "Remote Storage class not found, Steam may not be initialized: fileWrite");
-	int32_t data_size = data.size();
-	if (size > 0) {
-		data_size = size;
-	}
-	return SteamAPI_ISteamRemoteStorage_FileWrite(SteamAPI_SteamRemoteStorage(), file.utf8().get_data(), data.ptr(), data_size);
+	int64_t data_size = size == 0 ? data.size() : size;
+	ERR_FAIL_COND_V_MSG(data_size < 0 || data_size > data.size() || data_size > INT32_MAX, false, "Invalid file write size: fileWrite");
+	return SteamAPI_ISteamRemoteStorage_FileWrite(SteamAPI_SteamRemoteStorage(), file.utf8().get_data(), data.ptr(), (int32_t)data_size);
 }
 
 // Creates a new file and asynchronously writes the raw byte data to the Steam Cloud, and then closes the file. If the
 // target file already exists, it is overwritten.
 void Steam::fileWriteAsync(const String &file, PackedByteArray data, int32_t size) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamRemoteStorage() == nullptr, "Remote Storage class not found, Steam may not be initialized: fileWriteAsync");
-	int32_t data_size = data.size();
-	if (size > 0) {
-		data_size = size;
-	}
-	SteamAPICall_t api_call = SteamAPI_ISteamRemoteStorage_FileWriteAsync(SteamAPI_SteamRemoteStorage(), file.utf8().get_data(), data.ptr(), data_size);
+	int64_t data_size = size == 0 ? data.size() : size;
+	ERR_FAIL_COND_MSG(data_size < 0 || data_size > data.size() || data_size > UINT32_MAX, "Invalid file write size: fileWriteAsync");
+	SteamAPICall_t api_call = SteamAPI_ISteamRemoteStorage_FileWriteAsync(SteamAPI_SteamRemoteStorage(), file.utf8().get_data(), data.ptr(), (uint32_t)data_size);
 	callResultFileWriteAsyncComplete.Set(api_call, this, &Steam::file_write_async_complete);
 }
 
@@ -4919,7 +4930,8 @@ uint64_t Steam::fileWriteStreamOpen(const String &file) {
 // Writes a blob of data to the file write stream.
 bool Steam::fileWriteStreamWriteChunk(uint64_t write_handle, PackedByteArray data) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemoteStorage() == nullptr, false, "Remote Storage class not found, Steam may not be initialized: fileWriteStreamWriteChunk");
-	return SteamAPI_ISteamRemoteStorage_FileWriteStreamWriteChunk(SteamAPI_SteamRemoteStorage(), (UGCFileWriteStreamHandle_t)write_handle, data.ptr(), data.size());
+	ERR_FAIL_COND_V_MSG(data.size() > INT32_MAX, false, "File chunk exceeds maximum size: fileWriteStreamWriteChunk");
+	return SteamAPI_ISteamRemoteStorage_FileWriteStreamWriteChunk(SteamAPI_SteamRemoteStorage(), (UGCFileWriteStreamHandle_t)write_handle, data.ptr(), (int32_t)data.size());
 }
 
 // Gets the number of cached UGC.
@@ -5081,8 +5093,11 @@ void Steam::ugcDownloadToLocation(uint64_t content, const String &location, uint
 PackedByteArray Steam::ugcRead(uint64_t content, int32_t data_size, uint32_t offset, UGCReadAction action) {
 	PackedByteArray file_contents;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamRemoteStorage() == nullptr, file_contents, "Remote Storage class not found, Steam may not be initialized: setSyncPlatforms");
-	file_contents.resize(data_size);
-	SteamAPI_ISteamRemoteStorage_UGCRead(SteamAPI_SteamRemoteStorage(), (UGCHandle_t)content, file_contents.ptrw(), data_size, offset, (EUGCReadAction)action);
+	ERR_FAIL_COND_V_MSG(data_size < 0, file_contents, "Invalid read size: ugcRead");
+	ERR_FAIL_COND_V_MSG(file_contents.resize(data_size) != OK, file_contents, "Failed to allocate read buffer: ugcRead");
+	int32_t bytes_read = SteamAPI_ISteamRemoteStorage_UGCRead(SteamAPI_SteamRemoteStorage(), (UGCHandle_t)content, file_contents.ptrw(), data_size, offset, (EUGCReadAction)action);
+	ERR_FAIL_COND_V_MSG(bytes_read < 0 || bytes_read > data_size, PackedByteArray(), "Failed to read UGC data: ugcRead");
+	file_contents.resize(bytes_read);
 	return file_contents;
 }
 
@@ -7979,7 +7994,7 @@ void Steam::fake_ip_result(SteamNetworkingFakeIPResult_t *call_data) {
 	PackedInt32Array port_list;
 	port_list.resize(SteamNetworkingFakeIPResult_t::k_nMaxReturnPorts);
 	for (uint16_t i = 0; i < SteamNetworkingFakeIPResult_t::k_nMaxReturnPorts; i++) {
-		port_list.append(call_data->m_unPorts[i]);
+		port_list.set(i, call_data->m_unPorts[i]);
 	}
 	emit_signal("fake_ip_result", result, getSteamIDFromIdentity(call_data->m_identity), getStringFromIP(fake_ip), port_list);
 }

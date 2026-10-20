@@ -24,3 +24,4 @@ jobs:
       - run: python tests/native/run_tests.py
       - run: python tests/native/test_lane_bounds.py
       - run: python tests/native/test_core_wrappers.py
+      - run: python tests/native/test_core_buffers.py
