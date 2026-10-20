@@ -64,6 +64,7 @@
 
 // Include some system headers
 #include "map"
+#include <vector>
 
 namespace godot {
 
@@ -259,6 +260,7 @@ public:
 	void copyToClipboard(uint32_t browser_handle = 0);
 	void createBrowser(const String &user_agent = "", const String &user_css = "");
 	void executeJavascript(const String &javascript, uint32_t browser_handle = 0);
+	void fileLoadDialogResponse(const PackedStringArray &selected_files, uint32_t browser_handle = 0);
 	void find(const String &search, bool currently_in_find, bool reverse, uint32_t browser_handle = 0);
 	void getLinkAtPosition(int x, int y, uint32_t browser_handle = 0);
 	void goBack(uint32_t browser_handle = 0);
@@ -935,7 +937,7 @@ private:
 	bool is_init_success;
 	bool were_callbacks_embedded;
 
-	const SteamNetworkingConfigValue_t *convert_config_options(Dictionary config_options);
+	void convert_config_options(Dictionary config_options, std::vector<SteamNetworkingConfigValue_t> &option_array, std::vector<CharString> &option_strings);
 	CSteamID createSteamID(uint64_t steam_id, AccountType account_type = AccountType(-1));
 	SteamNetworkingIdentity getIdentityFromSteamID(uint64_t steam_id);
 	uint32_t getIPFromSteamIP(SteamNetworkingIPAddr this_address);

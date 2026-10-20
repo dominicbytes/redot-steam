@@ -217,9 +217,10 @@ Steam::Steam() :
 
 // Helper function to turn an array of options into an array of SteamNetworkingConfigValue_t structs. These arrays
 // contain dictionaries of { NetworkingConfigValue enum : value for config }
-const SteamNetworkingConfigValue_t *Steam::convert_config_options(Dictionary config_options) {
+void Steam::convert_config_options(Dictionary config_options, std::vector<SteamNetworkingConfigValue_t> &option_array, std::vector<CharString> &option_strings) {
 	uint32_t options_size = config_options.size();
-	SteamNetworkingConfigValue_t *option_array = new SteamNetworkingConfigValue_t[options_size];
+	option_array.resize(options_size);
+	option_strings.resize(options_size);
 
 	if (options_size > 0) {
 		for (uint32_t i = 0; i < options_size; i++) {
@@ -242,7 +243,8 @@ const SteamNetworkingConfigValue_t *Steam::convert_config_options(Dictionary con
 				SteamAPI_SteamNetworkingConfigValue_t_SetFloat(&this_option, this_value, config_options[sent_option]);
 			}
 			else if (value_type == Variant::STRING) {
-				SteamAPI_SteamNetworkingConfigValue_t_SetString(&this_option, this_value, String(config_options[sent_option]).utf8().get_data());
+				option_strings[i] = String(config_options[sent_option]).utf8();
+				SteamAPI_SteamNetworkingConfigValue_t_SetString(&this_option, this_value, option_strings[i].get_data());
 			}
 			else {
 				Object *this_pointer;
@@ -252,7 +254,6 @@ const SteamNetworkingConfigValue_t *Steam::convert_config_options(Dictionary con
 			option_array[i] = this_option;
 		}
 	}
-	return option_array;
 }
 
 // Creating a Steam ID for internal use
@@ -902,7 +903,7 @@ bool Steam::closeClanChatWindowInSteam(uint64_t chat_id) {
 // download the info to have the latest.
 void Steam::downloadClanActivityCounts(PackedInt64Array clan_id_array) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamFriends() == nullptr, "Friends class not found, Steam may not be initialized: downloadClanActivityCounts");
-	int clan_count = sizeof(clan_id_array);
+	int clan_count = clan_id_array.size();
 	CSteamID *clan_list = new CSteamID[clan_count];
 	for (int i = 0; i < clan_count; i++) {
 		clan_list[i] = (uint64)clan_id_array[i];
@@ -921,7 +922,7 @@ void Steam::enumerateFollowingList(uint32_t start_index) {
 // Gets the Steam ID at the given index in a Steam group chat.
 uint64_t Steam::getChatMemberByIndex(uint64_t clan_id, int user) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamFriends() == nullptr, 0, "Friends class not found, Steam may not be initialized: getChatMemberByIndex");
-	return SteamAPI_ISteamFriends_GetChatMemberByIndex(SteamAPI_SteamFriends(), current_clan_id, user);
+	return SteamAPI_ISteamFriends_GetChatMemberByIndex(SteamAPI_SteamFriends(), clan_id, user);
 }
 
 // Gets the most recent information we have about what the users in a Steam Group are doing.
@@ -1062,20 +1063,11 @@ Dictionary Steam::getFriendGamePlayed(uint64_t steam_id) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamFriends() == nullptr, friend_game, "Friends class not found, Steam may not be initialized: getFriendGamePlayed");
 	FriendGameInfo_t game_info;
 	if (SteamAPI_ISteamFriends_GetFriendGamePlayed(SteamAPI_SteamFriends(), steam_id, &game_info)) {
-		if (game_info.m_steamIDLobby.IsValid()) {
-			friend_game["id"] = game_info.m_gameID.AppID();
-			friend_game["ip"] = getStringFromIP(game_info.m_unGameIP);
-			friend_game["game_port"] = game_info.m_usGamePort;
-			friend_game["query_port"] = game_info.m_usQueryPort;
-			friend_game["lobby"] = uint64_t(game_info.m_steamIDLobby.ConvertToUint64());
-		}
-		else {
-			friend_game["id"] = game_info.m_gameID.AppID();
-			friend_game["ip"] = "0.0.0.0";
-			friend_game["game_port"] = 0;
-			friend_game["query_port"] = 0;
-			friend_game["lobby"] = 0; // No valid lobby
-		}
+		friend_game["id"] = game_info.m_gameID.AppID();
+		friend_game["ip"] = getStringFromIP(game_info.m_unGameIP);
+		friend_game["game_port"] = game_info.m_usGamePort;
+		friend_game["query_port"] = game_info.m_usQueryPort;
+		friend_game["lobby"] = game_info.m_steamIDLobby.IsValid() ? uint64_t(game_info.m_steamIDLobby.ConvertToUint64()) : uint64_t(0);
 	}
 	return friend_game;
 }
@@ -1153,10 +1145,12 @@ int Steam::getFriendsGroupMembersCount(int16_t friend_group) {
 Array Steam::getFriendsGroupMembersList(int16_t friend_group, int member_count) {
 	Array member_list;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamFriends() == nullptr, member_list, "Friends class not found, Steam may not be initialized: getFriendsGroupMembersList");
-	CSteamID friend_ids;
-	SteamAPI_ISteamFriends_GetFriendsGroupMembersList(SteamAPI_SteamFriends(), (FriendsGroupID_t)friend_group, &friend_ids, member_count);
-	uint64_t friends = friend_ids.ConvertToUint64();
-	member_list.append(friends);
+	ERR_FAIL_COND_V_MSG(member_count < 0, member_list, "Member count must not be negative: getFriendsGroupMembersList");
+	std::vector<CSteamID> friend_ids(member_count);
+	SteamAPI_ISteamFriends_GetFriendsGroupMembersList(SteamAPI_SteamFriends(), (FriendsGroupID_t)friend_group, friend_ids.data(), member_count);
+	for (const CSteamID &friend_id : friend_ids) {
+		member_list.append(uint64_t(friend_id.ConvertToUint64()));
+	}
 	return member_list;
 }
 
@@ -1546,6 +1540,21 @@ void Steam::executeJavascript(const String &javascript, uint32_t browser_handle)
 		browser_handle = current_browser_handle;
 	}
 	SteamAPI_ISteamHTMLSurface_ExecuteJavascript(SteamAPI_SteamHTMLSurface(), browser_handle, javascript.utf8().get_data());
+}
+
+// Respond after the application has selected files, or pass an empty array to cancel.
+void Steam::fileLoadDialogResponse(const PackedStringArray &selected_files, uint32_t browser_handle) {
+	ERR_FAIL_COND_MSG(SteamAPI_SteamHTMLSurface() == nullptr, "HTML Surface class not found, Steam may not be initialized: fileLoadDialogResponse");
+	if (browser_handle == 0) {
+		browser_handle = current_browser_handle;
+	}
+	std::vector<CharString> file_strings(selected_files.size());
+	std::vector<const char *> file_pointers(selected_files.size() + 1, nullptr);
+	for (int64_t i = 0; i < selected_files.size(); i++) {
+		file_strings[i] = selected_files[i].utf8();
+		file_pointers[i] = file_strings[i].get_data();
+	}
+	SteamAPI_ISteamHTMLSurface_FileLoadDialogResponse(SteamAPI_SteamHTMLSurface(), browser_handle, selected_files.is_empty() ? nullptr : file_pointers.data());
 }
 
 // Find a string in the current page of an HTML surface. This is the equivalent of "ctrl+f" in your browser of choice.
@@ -2001,7 +2010,7 @@ bool Steam::setHTTPRequestNetworkActivityTimeout(uint32_t request_handle, uint32
 bool Steam::setHTTPRequestRawPostBody(uint32_t request_handle, const String &content_type, const String &body) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamHTTP() == nullptr, false, "HTTP class not found, Steam may not be initialized: setHTTPRequestRawPostBody");
 	auto body_utf8 = body.utf8();
-	return SteamAPI_ISteamHTTP_SetHTTPRequestRawPostBody(SteamAPI_SteamHTTP(), request_handle, content_type.utf8().get_data(), reinterpret_cast<uint8_t *>(body_utf8.ptrw()), body_utf8.size());
+	return SteamAPI_ISteamHTTP_SetHTTPRequestRawPostBody(SteamAPI_SteamHTTP(), request_handle, content_type.utf8().get_data(), reinterpret_cast<uint8_t *>(body_utf8.ptrw()), body_utf8.length());
 }
 
 // Sets that the HTTPS request should require verified SSL certificate via machines certificate trust store. This currently only
@@ -2383,8 +2392,12 @@ void Steam::triggerRepeatedHapticPulse(uint64_t input_handle, SteamControllerPad
 // Send a haptic pulse, works on Steam Deck and Steam Controller devices.
 void Steam::triggerSimpleHapticEvent(uint64_t input_handle, ControllerHapticLocation haptic_location, uint8_t intensity, const String &gain_db, uint8_t other_intensity, const String &other_gain_db) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamInput() == nullptr, "Input not found, Steam may not be initialized: triggerSimpleHapticEvent");
-	char gain = gain_db[0];
-	char other_gain = other_gain_db[0];
+	ERR_FAIL_COND_MSG(!gain_db.is_valid_int() || !other_gain_db.is_valid_int(), "Haptic gains must be signed integers: triggerSimpleHapticEvent");
+	int64_t gain_value = gain_db.to_int();
+	int64_t other_gain_value = other_gain_db.to_int();
+	ERR_FAIL_COND_MSG(gain_value < -128 || gain_value > 127 || other_gain_value < -128 || other_gain_value > 127, "Haptic gains must fit a signed byte: triggerSimpleHapticEvent");
+	char gain = static_cast<char>(gain_value);
+	char other_gain = static_cast<char>(other_gain_value);
 	SteamAPI_ISteamInput_TriggerSimpleHapticEvent(SteamAPI_SteamInput(), (InputHandle_t)input_handle, (EControllerHapticLocation)haptic_location, intensity, gain, other_intensity, other_gain);
 }
 
@@ -2485,14 +2498,15 @@ void Steam::destroyResult(int this_inventory_handle) {
 int32 Steam::exchangeItems(const PackedInt64Array output_items, const PackedInt32Array output_quantity, const PackedInt64Array input_items, const PackedInt32Array input_quantity) {
 	int32 new_inventory_handle = 0;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamInventory() == nullptr, new_inventory_handle, "Inventory class not found, Steam may not be initialized: exchangeItems");
+	ERR_FAIL_COND_V_MSG(output_items.size() != output_quantity.size() || input_items.size() != input_quantity.size(), new_inventory_handle, "Item and quantity counts must match: exchangeItems");
 	uint32_t total_output = output_items.size();
 	SteamItemDef_t *generated_items = new SteamItemDef_t[total_output];
 	for (uint32_t i = 0; i < total_output; i++) {
 		generated_items[i] = output_items[i];
 	}
 
-	uint32_t *quantity_out = (uint32_t*) output_quantity.ptr();
-	uint32_t *quantity_in = (uint32_t*) input_quantity.ptr();
+	const uint32_t *quantity_out = (const uint32_t*) output_quantity.ptr();
+	const uint32_t *quantity_in = (const uint32_t*) input_quantity.ptr();
 
 	uint32_t array_size = input_items.size();
 	SteamItemInstanceID_t *input_item_ids = new SteamItemInstanceID_t[array_size];
@@ -2513,6 +2527,8 @@ int32 Steam::exchangeItems(const PackedInt64Array output_items, const PackedInt3
 int32 Steam::generateItems(const PackedInt64Array items, const PackedInt32Array quantity) {
 	int32 new_inventory_handle = 0;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamInventory() == nullptr, new_inventory_handle, "Inventory class not found, Steam may not be initialized: generateItems");
+	// An empty quantity array asks Steam for one of each item.
+	ERR_FAIL_COND_V_MSG(!quantity.is_empty() && items.size() != quantity.size(), new_inventory_handle, "Item and quantity counts must match: generateItems");
 	uint32_t total_quantity = items.size();
 	SteamItemDef_t *generated_items = new SteamItemDef_t[total_quantity];
 
@@ -2520,7 +2536,7 @@ int32 Steam::generateItems(const PackedInt64Array items, const PackedInt32Array 
 		generated_items[i] = items[i];
 	}
 
-	uint32_t *this_quantity = (uint32_t*) quantity.ptr();
+	const uint32_t *this_quantity = quantity.is_empty() ? nullptr : (const uint32_t*) quantity.ptr();
 	if (SteamAPI_ISteamInventory_GenerateItems(SteamAPI_SteamInventory(), &new_inventory_handle, generated_items, this_quantity, items.size())) {
 		inventory_handle = new_inventory_handle;
 	}
@@ -2643,11 +2659,12 @@ Array Steam::getResultItems(int32 this_inventory_handle) {
 	Array items;
 	uint32_t size = 0;
 
+	if (this_inventory_handle == 0) {
+		this_inventory_handle = inventory_handle;
+	}
+
 	if (SteamAPI_ISteamInventory_GetResultItems(SteamAPI_SteamInventory(), (SteamInventoryResult_t)this_inventory_handle, NULL, &size)) {
 		SteamItemDetails_t *item_array = new SteamItemDetails_t[size];
-		if (this_inventory_handle == 0) {
-			this_inventory_handle = inventory_handle;
-		}
 		if (SteamAPI_ISteamInventory_GetResultItems(SteamAPI_SteamInventory(), (SteamInventoryResult_t)this_inventory_handle, item_array, &size)) {
 			for (uint32_t i = 0; i < size; i++) {
 				Dictionary item_info;
@@ -2784,13 +2801,14 @@ bool Steam::setPropertyString(uint64_t item_id, const String &name, const String
 // Steam Wallet if necessary, etc.
 void Steam::startPurchase(const PackedInt64Array items, const PackedInt32Array quantity) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamInventory() == nullptr, "Inventory class not found, Steam may not be initialized: startPurchase");
+	ERR_FAIL_COND_MSG(items.size() != quantity.size(), "Item and quantity counts must match: startPurchase");
 	uint32_t total_items = items.size();
 	SteamItemDef_t *purchases = new SteamItemDef_t[total_items];
 	for (uint32_t i = 0; i < total_items; i++) {
 		purchases[i] = items[i];
 	}
 
-	uint32_t *these_quantities = (uint32_t*) quantity.ptr();
+	const uint32_t *these_quantities = (const uint32_t*) quantity.ptr();
 	SteamAPICall_t api_call = SteamAPI_ISteamInventory_StartPurchase(SteamAPI_SteamInventory(), purchases, these_quantities, total_items);
 	callResultStartPurchase.Set(api_call, this, &Steam::inventory_start_purchase_result);
 	delete[] purchases;
@@ -3534,7 +3552,10 @@ int Steam::sendMessageToUser(uint64_t remote_steam_id, const PackedByteArray dat
 // (IPv4 or IPv6).
 uint32_t Steam::createListenSocketIP(String ip_address, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: createListenSocketIP");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketIP(SteamAPI_SteamNetworkingSockets_SteamAPI(), getSteamIPFromString(ip_address), config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketIP(SteamAPI_SteamNetworkingSockets_SteamAPI(), getSteamIPFromString(ip_address), config_options.size(), options.data());
 	return listen_socket;
 }
 
@@ -3542,7 +3563,10 @@ uint32_t Steam::createListenSocketIP(String ip_address, Dictionary config_option
 // Valve network.
 uint32_t Steam::createListenSocketP2P(int virtual_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: createListenSocketP2P");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketP2P(SteamAPI_SteamNetworkingSockets_SteamAPI(), virtual_port, config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketP2P(SteamAPI_SteamNetworkingSockets_SteamAPI(), virtual_port, config_options.size(), options.data());
 	return listen_socket;
 }
 
@@ -3551,7 +3575,10 @@ uint32_t Steam::createListenSocketP2P(int virtual_port, Dictionary config_option
 // steam backend.) The traffic is relayed over the Steam Datagram Relay network.
 uint32_t Steam::connectP2P(uint64_t remote_steam_id, int virtual_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: connectP2P");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_ConnectP2P(SteamAPI_SteamNetworkingSockets_SteamAPI(), getIdentityFromSteamID(remote_steam_id), virtual_port, config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_ConnectP2P(SteamAPI_SteamNetworkingSockets_SteamAPI(), getIdentityFromSteamID(remote_steam_id), virtual_port, config_options.size(), options.data());
 	return listen_socket;
 }
 
@@ -3559,14 +3586,20 @@ uint32_t Steam::connectP2P(uint64_t remote_steam_id, int virtual_port, Dictionar
 // Used with createListenSocketIP.
 uint32_t Steam::connectByIPAddress(String ip_address_with_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: connectByIPAddress");
-	return SteamAPI_ISteamNetworkingSockets_ConnectByIPAddress(SteamAPI_SteamNetworkingSockets_SteamAPI(), getSteamIPFromString(ip_address_with_port), config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	return SteamAPI_ISteamNetworkingSockets_ConnectByIPAddress(SteamAPI_SteamNetworkingSockets_SteamAPI(), getSteamIPFromString(ip_address_with_port), config_options.size(), options.data());
 }
 
 // Client call to connect to a server hosted in a Valve data center, on the specified virtual port. You must have placed
 // a ticket for this server into the cache, or else this connect attempt will fail!
 uint32_t Steam::connectToHostedDedicatedServer(uint64_t remote_steam_id, int virtual_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: connectToHostedDedicatedServer");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_ConnectToHostedDedicatedServer(SteamAPI_SteamNetworkingSockets_SteamAPI(), getIdentityFromSteamID(remote_steam_id), virtual_port, config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_ConnectToHostedDedicatedServer(SteamAPI_SteamNetworkingSockets_SteamAPI(), getIdentityFromSteamID(remote_steam_id), virtual_port, config_options.size(), options.data());
 	return listen_socket;
 }
 
@@ -4050,7 +4083,10 @@ Dictionary Steam::getFakeIP(int first_port) {
 // this listen socket by calling ConnectByIPAddress.
 uint32_t Steam::createListenSocketP2PFakeIP(int fake_port, Dictionary config_options) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr, 0, "Networking Sockets class not found, Steam may not be initialized: createListenSocketP2PFakeIP");
-	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketP2PFakeIP(SteamAPI_SteamNetworkingSockets_SteamAPI(), fake_port, config_options.size(), convert_config_options(config_options));
+	std::vector<SteamNetworkingConfigValue_t> options;
+	std::vector<CharString> option_strings;
+	convert_config_options(config_options, options, option_strings);
+	uint32_t listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketP2PFakeIP(SteamAPI_SteamNetworkingSockets_SteamAPI(), fake_port, config_options.size(), options.data());
 	return listen_socket;
 }
 
@@ -7348,6 +7384,9 @@ void Steam::equipped_profile_items_changed(EquippedProfileItemsChanged_t *call_d
 void Steam::html_browser_restarted(HTML_BrowserRestarted_t *call_data) {
 	uint32_t browser_handle = call_data->unBrowserHandle;
 	uint32_t old_browser_handle = call_data->unOldBrowserHandle;
+	if (current_browser_handle == old_browser_handle) {
+		current_browser_handle = browser_handle;
+	}
 	emit_signal("html_browser_restarted", browser_handle, old_browser_handle);
 }
 
@@ -7379,9 +7418,6 @@ void Steam::html_file_open_dialog(HTML_FileOpenDialog_t *call_data) {
 	current_browser_handle = call_data->unBrowserHandle;
 	const String &title = call_data->pchTitle;
 	const String &initial_file = call_data->pchInitialFile;
-	// Allows you to react to a page wanting to open a file load dialog. NOTE: You MUST call this in response to a
-	// HTML_FileOpenDialog_t callback. So it is added here unless there is a case to use it separately.
-	SteamAPI_ISteamHTMLSurface_FileLoadDialogResponse(SteamAPI_SteamHTMLSurface(), current_browser_handle, &call_data->pchInitialFile);
 	emit_signal("html_file_open_dialog", current_browser_handle, title, initial_file);
 }
 
@@ -9156,6 +9192,7 @@ void Steam::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("copyToClipboard", "browser_handle"), &Steam::copyToClipboard, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("createBrowser", "user_agent", "user_css"), &Steam::createBrowser, DEFVAL(""), DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("executeJavascript", "script", "browser_handle"), &Steam::executeJavascript, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("fileLoadDialogResponse", "selected_files", "browser_handle"), &Steam::fileLoadDialogResponse, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("find", "search", "currently_in_find", "reverse", "browser_handle"), &Steam::find, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("getLinkAtPosition", "x", "y", "browser_handle"), &Steam::getLinkAtPosition, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("goBack", "browser_handle"), &Steam::goBack, DEFVAL(0));
