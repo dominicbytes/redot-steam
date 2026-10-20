@@ -14,6 +14,18 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def report_passed(output, name):
+    """Require one structured fixture report with zero failures."""
+    lines = [line for line in output.splitlines() if line.startswith(name + "=")]
+    if len(lines) != 1:
+        return False
+    try:
+        report = json.loads(lines[0][len(name) + 1:])
+    except json.JSONDecodeError:
+        return False
+    return isinstance(report, dict) and report.get("failure_count") == 0 and report.get("failures") == []
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--engine", required=True, type=Path)
@@ -50,7 +62,11 @@ def main():
             output = process.communicate(timeout=10)[0] + "\nEngine timed out"
             code = "TIMEOUT"
         diagnostics = [line for line in output.splitlines() if "ERROR:" in line or "WARNING:" in line]
-        passed = code == 0 and not diagnostics and (marker is None or marker in output)
+        if callable(marker):
+            marked = marker(output)
+        else:
+            marked = marker is None or marker in output
+        passed = code == 0 and not diagnostics and marked
         row = {"project": project.name, "phase": phase, "exit": code, "diagnostics": len(diagnostics), "passed": passed}
         rows.append(row)
         print(json.dumps(row), flush=True)
@@ -85,7 +101,7 @@ def main():
         run(project, "cold-import", ["--editor", "--import"], "RedotSteam (GodotSteam API v4.21)" if enabled else None)
         run(project, "restart", ["--editor"], "RedotSteam (GodotSteam API v4.21)" if enabled else None)
         run(project, "game", [], '"failure_count":0')
-        run(project, "init-failure", ["--script", "res://init_failure.gd"], "REDOTSTEAM_INIT_FAILURE=PASS")
+        run(project, "init-failure", ["--script", "res://init_failure.gd"], lambda output: report_passed(output, "REDOTSTEAM_INIT_FAILURE"))
         if enabled:
             for name in ("startup.gd", "startup.gd.uid", "startup.tscn"):
                 shutil.copy2(Path(__file__).parent / name, project / name)

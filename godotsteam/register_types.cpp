@@ -51,6 +51,9 @@ static bool editor_discovery = false;
 // During late discovery, Redot can run queued help generation after destroying
 // its documentation database. Hide classes from help generation until restart
 // and skip the automatic EDITOR documentation load and its matching cleanup.
+// Hidden classes are also hidden from GDScript type and identifier lookup, so
+// tool scripts can only reach them through Engine.get_singleton("Steam") and
+// ClassDB.instantiate() until the editor restarts.
 static void initialize_library(void *userdata, GDExtensionInitializationLevel level) {
 	if (editor_discovery && level == GDEXTENSION_INITIALIZATION_EDITOR) {
 		return;
@@ -70,7 +73,7 @@ void initialize_godotsteam(ModuleInitializationLevel level){
 	if(level == MODULE_INITIALIZATION_LEVEL_CORE){
 		if (editor_discovery) {
 			ClassDB::register_internal_class<Steam>();
-			print_line("[STEAM] Restart the editor to load Steam class documentation.");
+			print_line("[STEAM] RedotSteam was found while the editor was running. Restart the editor before using Steam, SteamMultiplayerPeer or SteamPacketPeer by name in tool scripts; their class names and documentation load after the restart.");
 		} else {
 			ClassDB::register_class<Steam>();
 		}
