@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "docs" / "gamedev" / "parity" / "upstream-api.json"
+OUTPUT = ROOT / "parity" / "upstream-api.json"
 UPSTREAM_COMMIT = "8e0b976d0ae02a23c35daecf32c6b7bfeba0da08"
 CLASS_SOURCES = {
     "Steam": "godotsteam/godotsteam.cpp",

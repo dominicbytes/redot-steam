@@ -22,7 +22,7 @@ def main() -> int:
     require(api["redot_header"]["version_minor"] == 2, "Pinned 26.2 binding ABI mismatch (also used on 26.3)")
     require(api["header"]["version_major"] == 4 and api["header"]["version_minor"] == 5, "Godot API lineage mismatch")
 
-    inventory = json.loads((ROOT / "docs/gamedev/parity/upstream-api.json").read_text(encoding="utf-8"))
+    inventory = json.loads((ROOT / "parity/upstream-api.json").read_text(encoding="utf-8"))
     require(inventory["classes"]["Steam"]["upstream"]["counts"]["methods"] >= 700, "Steam method inventory is unexpectedly incomplete")
     require(inventory["classes"]["Steam"]["upstream"]["counts"]["signals"] >= 180, "Steam signal inventory is unexpectedly incomplete")
     require(set(inventory["classes"]) == {"Steam", "SteamMultiplayerPeer", "SteamPacketPeer"}, "Native class inventory mismatch")
