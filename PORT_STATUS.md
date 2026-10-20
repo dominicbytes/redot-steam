@@ -4,8 +4,9 @@ Port status for Redot 26.2 and 26.3.
 
 ## Current state
 
-- Native implementation and Alpha qualification: in progress
-- Disposition: Alpha passed; Beta blocked on a private Steam app
+- Alpha qualification: incomplete for the current candidate
+- Disposition: historical Alpha evidence recorded; current candidate is not release-qualified
+- Beta, RC and stable-prep: BLOCKED until their suites and evidence checks are implemented; Beta also requires private Steam app access
 - Authoritative upstream: https://codeberg.org/godotsteam/godotsteam
 - Source branch: `gdextension`
 - Upstream commit: `8e0b976d0ae02a23c35daecf32c6b7bfeba0da08`
@@ -26,7 +27,7 @@ Port status for Redot 26.2 and 26.3.
 - Historical maintenance: certified binaries remain downloadable; fixes are best effort
 - Steamworks SDK policy: one exact supported version/hash per release; upgrades rerun all gates
 - Initial SDK target: Steamworks SDK 1.65; the mirror is used only as an ignored local code/build oracle and excluded from packages
-- Native evidence: Windows x86_64, Linux x86_64, and Linux arm64 debug/release builds pass; matching Redot 26.2 native fixtures load/unload and exit cleanly
+- Historical Redot 26.2 native evidence: Windows x86_64, Linux x86_64, and Linux arm64 debug/release builds pass; matching Redot 26.2 native fixtures load/unload and exit cleanly
 - Steam Web API boundary: optional separately named public HTTP integration only; it does not replace native Steam client APIs
 - Public Steam test profile: App ID 480
 - Full-parity Steam test profile: private app; configuration and credentials remain outside Git
@@ -41,8 +42,8 @@ Port status for Redot 26.2 and 26.3.
 - Promotion safety: a failed gate never publishes or advances; immutable build-input changes reset the candidate to Alpha
 - Stable promotion: automatically publish the exact unchanged RC addon ZIP after the final complete required-target Gauntlet passes on independent clean disposable runners with valid verification assets and zero unresolved P0-P2 defects
 - API parity: exact across the three native classes, extension manifest, and documentation inventory
-- Alpha evidence: PASS against SDK-free archive SHA-256 `15144421AEF6BE9DDBFD75238547459F59DA0DDF421EC1E0F598C21F70D34CD5`
-- Next steps: Beta private-app suite, then clean-runner RC reproducibility and GitHub publication
+- Historical Alpha evidence: recorded PASS against SDK-free archive SHA-256 `15144421AEF6BE9DDBFD75238547459F59DA0DDF421EC1E0F598C21F70D34CD5`; does not qualify the current candidate
+- Next steps: complete current Alpha qualification and implement private-app, reproducibility and independent promotion suites with evidence validation
 
 The tracked upstream README is preserved unchanged as `UPSTREAM_README.md`. Port-specific status lives here.
 
