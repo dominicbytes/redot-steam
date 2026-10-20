@@ -5,12 +5,20 @@ Run from a compiler environment (cl or c++ on PATH). A full extension build
 remains necessary to check ABI integration.
 """
 from pathlib import Path
+import argparse
 import os
 import shutil
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def source_text(path, source_ref):
+    if source_ref:
+        return subprocess.run(["git", "show", f"{source_ref}:{path}"], cwd=ROOT,
+                              check=True, capture_output=True, text=True).stdout
+    return (ROOT / path).read_text(encoding="utf-8")
 
 
 def method(source, signature):
@@ -25,7 +33,11 @@ def method(source, signature):
 
 
 def main():
-    source = (ROOT / "godotsteam/godotsteam_multiplayer_peer.cpp").read_text(encoding="utf-8")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source-ref", help="Test production methods from a git revision")
+    parser.add_argument("--case", default="all", choices=['all', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6'])
+    args = parser.parse_args()
+    source = source_text("godotsteam/godotsteam_multiplayer_peer.cpp", args.source_ref)
     bodies = "\n".join(method(source, signature) for signature in (
         "void SteamMultiplayerPeer::_poll()",
         "void SteamMultiplayerPeer::_upgrade_peer(",
@@ -33,8 +45,13 @@ def main():
         "void SteamMultiplayerPeer::_close()",
         "Error SteamMultiplayerPeer::_get_packet(",
         "SteamMultiplayerPeer::~SteamMultiplayerPeer()",
+        "void SteamMultiplayerPeer::_disconnect_peer(",
+        "Error SteamMultiplayerPeer::add_peer(",
+        "void SteamMultiplayerPeer::_add_pending_peer(",
+        "Error SteamMultiplayerPeer::create_client(",
+        "Error SteamMultiplayerPeer::_put_packet(",
     ))
-    settings = (ROOT / "godotsteam/godotsteam_project_settings.cpp").read_text(encoding="utf-8")
+    settings = source_text("godotsteam/godotsteam_project_settings.cpp", args.source_ref)
     bodies += "\n" + method(settings, "int SteamProjectSettings::get_max_queued_packets()")
     harness = (ROOT / "tests/native/multiplayer_peer.cpp").read_text(encoding="utf-8")
     compiler = os.environ.get("CXX") or shutil.which("cl") or shutil.which("c++")
@@ -44,13 +61,13 @@ def main():
         scratch = Path(scratch)
         (scratch / "test.cpp").write_text(harness.replace("// PRODUCTION_METHODS", bodies), encoding="utf-8")
         if Path(compiler).stem.lower() == "cl":
-            command = [compiler, "/nologo", "/EHsc", "/std:c++17", "/W4", "test.cpp", "/Fe:test.exe"]
+            command = [compiler, "/nologo", "/EHsc", "/std:c++17", "/W4", f"/pathmap:{scratch}=scratch", "test.cpp", "/Fe:test.exe"]
             executable = "test.exe"
         else:
-            command = [compiler, "-std=c++17", "-Wall", "-Wextra", "test.cpp", "-o", "test"]
+            command = [compiler, "-std=c++17", "-Wall", "-Wextra", f"-ffile-prefix-map={scratch.as_posix()}=scratch", "test.cpp", "-o", "test"]
             executable = "test"
         subprocess.run(command, cwd=scratch, check=True, timeout=60)
-        subprocess.run([str(scratch / executable)], cwd=scratch, check=True, timeout=10)
+        subprocess.run([str(scratch / executable), args.case], cwd=scratch, check=True, timeout=10)
 
 
 if __name__ == "__main__":

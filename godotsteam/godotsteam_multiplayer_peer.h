@@ -71,6 +71,8 @@ private:
 	bool server = false;
 	uint64_t expected_host_steam_id = 0;
 	int connection_retries = 0;
+	HSteamNetConnection host_connection = k_HSteamNetConnection_Invalid;
+	int host_virtual_port = 0;
 
 	bool no_nagle = false;
 	bool no_delay = false;

@@ -43,51 +43,56 @@ void SteamProjectSettings::register_settings() {
 	property_info["hint"] = PROPERTY_HINT_ENUM;
 	property_info["hint_string"] = "App / Game, Demo, Playtest, Tool";
 	ProjectSettings::get_singleton()->add_property_info(property_info);
-	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/app_type", true);
+	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/app_type", 0);
 	ProjectSettings::get_singleton()->set_as_basic("steam/initialization/app_data/app_type", true);
 
 	if (!ProjectSettings::get_singleton()->has_setting("steam/initialization/app_data/app_id")) {
 		ProjectSettings::get_singleton()->set("steam/initialization/app_data/app_id", 0);
 	}
-	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/app_id", true);
+	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/app_id", 0);
 	ProjectSettings::get_singleton()->set_as_basic("steam/initialization/app_data/app_id", true);
 
 	if (!ProjectSettings::get_singleton()->has_setting("steam/initialization/app_data/demo_id")) {
 		ProjectSettings::get_singleton()->set("steam/initialization/app_data/demo_id", 0);
 	}
-	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/demo_id", true);
+	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/demo_id", 0);
 	ProjectSettings::get_singleton()->set_as_basic("steam/initialization/app_data/demo_id", true);
 
 	if (!ProjectSettings::get_singleton()->has_setting("steam/initialization/app_data/playtest_id")) {
 		ProjectSettings::get_singleton()->set("steam/initialization/app_data/playtest_id", 0);
 	}
-	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/playtest_id", true);
+	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/playtest_id", 0);
 	ProjectSettings::get_singleton()->set_as_basic("steam/initialization/app_data/playtest_id", true);
 
 	if (!ProjectSettings::get_singleton()->has_setting("steam/initialization/app_data/tool_id")) {
 		ProjectSettings::get_singleton()->set("steam/initialization/app_data/tool_id", 0);
 	}
-	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/tool_id", true);
+	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/app_data/tool_id", 0);
 	ProjectSettings::get_singleton()->set_as_basic("steam/initialization/app_data/tool_id", true);
 
 	// Set up our initialization process options
 	if (!ProjectSettings::get_singleton()->has_setting("steam/initialization/processes/initialize_on_startup")) {
 		ProjectSettings::get_singleton()->set("steam/initialization/processes/initialize_on_startup", false);
 	}
-	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/processes/initialize_on_startup", true);
+	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/processes/initialize_on_startup", false);
 	ProjectSettings::get_singleton()->set_as_basic("steam/initialization/processes/initialize_on_startup", true);
 
 	if (!ProjectSettings::get_singleton()->has_setting("steam/initialization/processes/embed_callbacks")) {
 		ProjectSettings::get_singleton()->set("steam/initialization/processes/embed_callbacks", false);
 	}
-	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/processes/embed_callbacks", true);
+	ProjectSettings::get_singleton()->set_initial_value("steam/initialization/processes/embed_callbacks", false);
 	ProjectSettings::get_singleton()->set_as_basic("steam/initialization/processes/embed_callbacks", true);
 
 	// Set up our MultiplayerPeer stuff
 	if (!ProjectSettings::get_singleton()->has_setting("steam/multiplayer_peer/max_channels")) {
 		ProjectSettings::get_singleton()->set("steam/multiplayer_peer/max_channels", 4);
 	}
-	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/max_channels", true);
+	property_info["name"] = "steam/multiplayer_peer/max_channels";
+	property_info["type"] = Variant::INT;
+	property_info["hint"] = PROPERTY_HINT_RANGE;
+	property_info["hint_string"] = "1,255,1";
+	ProjectSettings::get_singleton()->add_property_info(property_info);
+	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/max_channels", 4);
 	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/max_channels", true);
 
 	if (!ProjectSettings::get_singleton()->has_setting("steam/multiplayer_peer/max_queued_packets")) {
@@ -162,7 +167,11 @@ int SteamProjectSettings::get_id_in_use() {
 
 
 int SteamProjectSettings::get_max_channels() {
-	return ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/max_channels");
+	int64_t channels = ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/max_channels");
+	if (channels > 255) {
+		return 255;
+	}
+	return channels > 0 ? (int)channels : 1;
 }
 
 

@@ -3,18 +3,28 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <functional>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
 
+#define memnew(T) std::make_shared<T>()
+#define ERR_FAIL_COND_V(condition, error) do { if (condition) { return error; } } while (false)
 #define MAX_MESSAGE_COUNT 255
 #define unlikely(x) (x)
 #define ERR_FAIL_COND_V_MSG(condition, error, ...) do { if (condition) { return error; } } while (false)
-#define WARN_PRINT(...) ((void)0)
+template <typename... T> static void discard_log(const T &...) {}
+template <typename... T> static int vformat(const char *, const T &...) { return 0; }
+#define WARN_PRINT(...) discard_log(__VA_ARGS__)
 #define ERR_PRINT(...) ((void)0)
 #define ERR_FAIL_COND_MSG(condition, ...) do { if (condition) { return; } } while (false)
 
 using uint64 = uint64_t;
+using SteamNetworkingIdentity = uint64_t;
+struct SteamNetworkingConfigValue_t {};
+constexpr int k_ESteamNetworkingConfig_SymmetricConnect = 0;
+constexpr int k_HSteamNetConnection_Invalid = 0;
 constexpr int k_ESteamNetworkingConnectionState_None = 0;
 constexpr int k_ESteamNetworkingConnectionState_Connecting = 1;
 constexpr int k_ESteamNetworkingConnectionState_FindingRoute = 2;
@@ -23,7 +33,7 @@ constexpr int k_ESteamNetworkingConnectionState_ClosedByPeer = 4;
 constexpr int k_ESteamNetworkingConnectionState_ProblemDetectedLocally = 5;
 constexpr int k_ESteamNetConnectionEnd_Remote_BadCert = 1;
 constexpr int k_HSteamListenSocket_Invalid = 0;
-constexpr int k_EResultOK = 0;
+constexpr int k_EResultOK = 1;
 struct SteamNetConnectionStatusChangedCallback_t {
 	uint32_t m_hConn;
 	int m_eOldState;
@@ -33,10 +43,12 @@ struct SteamNetConnectionStatusChangedCallback_t {
 		uint64_t m_identityRemote;
 		int m_hListenSocket;
 		int m_eEndReason;
+		const char *m_szEndDebug = "";
 	} m_info;
 };
 
-enum Error { OK, ERR_INVALID_DATA, ERR_UNAVAILABLE };
+enum Error { OK, ERR_INVALID_DATA, ERR_UNAVAILABLE, ERR_ALREADY_IN_USE, ERR_CANT_CREATE, ERR_UNCONFIGURED, ERR_INVALID_PARAMETER, ERR_CONNECTION_ERROR };
+struct Math { static int abs(int x) { return std::abs(x); } };
 constexpr int k_HSteamNetPollGroup_Invalid = 0;
 using HSteamNetConnection = uint32_t;
 template <typename T> using Ref = std::shared_ptr<T>;
@@ -91,9 +103,20 @@ static void SteamAPI_ISteamNetworkingSockets_CloseListenSocket(void *, int) {}
 static void SteamAPI_ISteamNetworkingSockets_DestroyPollGroup(void *, int) {}
 static void *SteamAPI_SteamNetworkingSockets_SteamAPI() { return nullptr; }
 static uint64_t SteamAPI_SteamNetworkingIdentity_GetSteamID64(uint64_t *id) { return *id; }
-static void SteamAPI_ISteamNetworkingSockets_CloseConnection(void *, HSteamNetConnection, int, const char *, bool) {}
+static HashMap<HSteamNetConnection, int> closes;
+static HashMap<HSteamNetConnection, int> groups;
+static int last_virtual_port = -1;
+static HSteamNetConnection next_connection = 1000;
+static bool fail_connect = false;
+static void SteamAPI_ISteamNetworkingSockets_CloseConnection(void *, HSteamNetConnection conn, int, const char *, bool) { closes[conn]++; }
+static void SteamAPI_SteamNetworkingIdentity_SetSteamID64(uint64_t *id, uint64_t value) { *id = value; }
+static void SteamAPI_SteamNetworkingConfigValue_t_SetInt32(SteamNetworkingConfigValue_t *, int, int) {}
+static HSteamNetConnection SteamAPI_ISteamNetworkingSockets_ConnectP2P(void *, uint64_t, int port, int, SteamNetworkingConfigValue_t *) {
+	last_virtual_port = port;
+	return fail_connect ? 0 : next_connection++;
+}
 static int SteamAPI_ISteamNetworkingSockets_AcceptConnection(void *, HSteamNetConnection) { return k_EResultOK; }
-static bool SteamAPI_ISteamNetworkingSockets_SetConnectionPollGroup(void *, HSteamNetConnection, int) { return true; }
+static bool SteamAPI_ISteamNetworkingSockets_SetConnectionPollGroup(void *, HSteamNetConnection conn, int group) { groups[conn] = group; return group != 0; }
 static int SteamAPI_ISteamNetworkingSockets_ReceiveMessagesOnPollGroup(void *, int, SteamNetworkingMessage_t **messages, int count) {
 	requested_messages = count;
 	receive_calls++;
@@ -110,11 +133,16 @@ struct SteamPacketPeer {
 		STATE_CONNECTING = k_ESteamNetworkingConnectionState_Connecting,
 		STATE_CONNECTED = k_ESteamNetworkingConnectionState_Connected
 	};
+	Error send_result = OK;
+	int send_calls = 0;
 	uint32_t peer_id = 0;
 	uint64_t steam_id = 0;
 	HSteamNetConnection connection_handle = 0;
 	PeerState state = STATE_CONNECTED;
 	bool closed = false;
+	void set_steam_id(uint64_t value) { steam_id = value; }
+	void set_connection_handle(HSteamNetConnection value) { connection_handle = value; }
+	Error send(int, const uint8_t *, int, int) { send_calls++; return send_result; }
 	void set_peer_id(uint32_t id) { peer_id = id; user_data[connection_handle] = id; }
 	uint32_t get_peer_id() const { return peer_id; }
 	uint64_t get_steam_id() const { return steam_id; }
@@ -123,7 +151,7 @@ struct SteamPacketPeer {
 	void set_state(PeerState value) { state = value; }
 	Error ping(uint32_t) { return OK; }
 	Error process_ping(SteamNetworkingMessage_t *message) { set_peer_id(message->claimed_id); return OK; }
-	void disconnect_peer(bool force) { assert(force); closed = true; state = STATE_NONE; }
+	void disconnect_peer(bool) { closed = true; state = STATE_NONE; SteamAPI_ISteamNetworkingSockets_CloseConnection(nullptr, connection_handle, 0, nullptr, false); }
 };
 struct SteamMultiplayerPeer {
 	enum { CONNECTION_DISCONNECTED, CONNECTION_CONNECTING, CONNECTION_CONNECTED, DEBUG_LEVEL_NONE };
@@ -138,17 +166,33 @@ struct SteamMultiplayerPeer {
 	int debug_level = DEBUG_LEVEL_NONE;
 	int listen_socket = k_HSteamListenSocket_Invalid;
 	int connection_retries = 0;
+	HSteamNetConnection host_connection = k_HSteamNetConnection_Invalid;
+	int host_virtual_port = 0;
+	int target_peer = 0;
+	int _get_transfer_channel() { return 0; }
+	int _get_steam_packet_flags() { return 0; }
+	Error _put_packet(const uint8_t *, int);
+	Error _create_listen_socket(int) { listen_socket = 10; return OK; }
+	Error _create_poll_group() { poll_group = 1; return OK; }
+	int generate_unique_id() { return 2; }
+	Error create_client(uint64_t, int = 0);
 	int unique_id = 2;
 	bool server = false;
 	uint64_t expected_host_steam_id = 100;
 	int connection_status = CONNECTION_CONNECTING;
 	std::vector<uint32_t> connected;
-	void emit_signal(const char *name, uint32_t id) { assert(std::string(name) == "peer_connected"); connected.push_back(id); }
+	std::function<void(uint32_t)> on_disconnect;
+	void emit_signal(const char *name, uint32_t id) {
+		if (std::string(name) == "peer_connected") { connected.push_back(id); }
+		else { disconnected.push_back(id); if (on_disconnect) { on_disconnect(id); } }
+	}
 	std::vector<uint32_t> disconnected;
-	void _disconnect_peer(uint32_t id, bool) { disconnected.push_back(id); peers.erase(id); }
-	bool is_refusing_new_connections() const { return false; }
-	void add_peer(uint64_t) {}
-	void _add_pending_peer(uint64_t, HSteamNetConnection, SteamPacketPeer::PeerState) {}
+	void _disconnect_peer(int, bool = false);
+	bool refusing = false;
+	bool is_refusing_new_connections() const { return refusing; }
+	void set_refuse_new_connections(bool value) { refusing = value; }
+	Error add_peer(uint64_t, int = 0);
+	void _add_pending_peer(uint64_t, HSteamNetConnection, SteamPacketPeer::PeerState);
 	int _get_unique_id() const { return unique_id; }
 	void network_connection_status_changed(SteamNetConnectionStatusChangedCallback_t *);
 	void _poll();
@@ -181,7 +225,104 @@ static void rejected_claim(uint32_t id, bool server = false, uint64_t steam_id =
 	assert(handshake.releases == 1 && payload.releases == 1);
 	assert(network.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTING);
 }
-int main() {
+static void lifecycle_case(const std::string &name) {
+	if (name == "C1") {
+		SteamMultiplayerPeer owner, other, inactive;
+		owner.listen_socket = 11; owner.poll_group = 11;
+		other.listen_socket = 22; other.poll_group = 22;
+		inactive.poll_group = 0;
+		SteamNetConnectionStatusChangedCallback_t event{71, 0, {k_ESteamNetworkingConnectionState_Connecting, 0, 200, 11, 0}};
+		owner.network_connection_status_changed(&event);
+		auto peer = owner.steam_connections[71];
+		other.network_connection_status_changed(&event); inactive.network_connection_status_changed(&event);
+		assert(groups[71] == 11 && closes[71] == 0);
+		assert(!other.steam_connections.has(71) && !inactive.steam_connections.has(71));
+		assert(owner.add_peer(300, 7) == OK);
+		auto conn = next_connection - 1;
+		assert(owner.steam_connections.has(conn));
+		auto outgoing = owner.steam_connections[conn];
+		event = {conn, 0, {k_ESteamNetworkingConnectionState_Connecting, 0, 300, 0, 0}};
+		owner.network_connection_status_changed(&event); other.network_connection_status_changed(&event);
+		assert(owner.steam_connections[conn] == outgoing && !other.steam_connections.has(conn));
+		event.m_hConn = 71; event.m_info.m_eState = k_ESteamNetworkingConnectionState_ClosedByPeer;
+		other.network_connection_status_changed(&event); inactive.network_connection_status_changed(&event);
+		assert(closes[71] == 0 && owner.steam_connections[71] == peer);
+	} else if (name == "C2") {
+		SteamMultiplayerPeer network; network.connection_status = SteamMultiplayerPeer::CONNECTION_CONNECTED;
+		auto first = pending(network, 72), second = pending(network, 73);
+		network.peers[3] = first; network.peers[4] = second;
+		first->send_result = ERR_CONNECTION_ERROR;
+		const uint8_t byte = 1;
+		assert(network._put_packet(&byte, 1) == ERR_CONNECTION_ERROR);
+		assert(first->send_calls == 1 && second->send_calls == 1);
+		network.target_peer = -4;
+		assert(network._put_packet(&byte, 1) == ERR_CONNECTION_ERROR);
+		network.target_peer = 3;
+		assert(network._put_packet(&byte, 1) == ERR_CONNECTION_ERROR);
+	} else if (name == "C3") {
+		for (int id : {1, 3}) {
+			SteamMultiplayerPeer network;
+			auto peer = pending(network, 74); peer->set_peer_id(id); network.peers[id] = peer;
+			network.on_disconnect = [&](uint32_t gone) {
+				assert(!network.peers.has(gone) && !network.steam_connections.has(74));
+				if (network.disconnected.size() == 1) { network._disconnect_peer(gone, true); }
+				if (id == 1) { assert(network.create_client(100, 9) == OK); }
+			};
+			network._disconnect_peer(id, true);
+			assert(peer->closed && network.disconnected.size() == 1);
+			if (id == 1) { assert(network.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTING); assert(network.steam_connections.has(next_connection - 1)); }
+		}
+	} else if (name == "C4") {
+		SteamMultiplayerPeer network;
+		auto host = pending(network, 75, 100); host->set_peer_id(1); network._upgrade_peer(75);
+		SteamNetConnectionStatusChangedCallback_t event{75, k_ESteamNetworkingConnectionState_Connected,
+			{k_ESteamNetworkingConnectionState_ClosedByPeer, -1, 100, 0, 0}};
+		network.network_connection_status_changed(&event);
+		assert(!network.peers.has(1) && network.disconnected.size() == 1 && host->closed);
+		assert(network.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+		assert(closes[75] == 1);
+	} else if (name == "C5") {
+		for (int state : {k_ESteamNetworkingConnectionState_Connecting, k_ESteamNetworkingConnectionState_FindingRoute, k_ESteamNetworkingConnectionState_Connected}) {
+			SteamMultiplayerPeer network; network._close(); assert(network.create_client(100, 9) == OK);
+			auto conn = next_connection - 1;
+			SteamNetConnectionStatusChangedCallback_t event{conn, state, {k_ESteamNetworkingConnectionState_ProblemDetectedLocally, -1, 100, 0, 0}};
+			network.network_connection_status_changed(&event);
+			assert(network.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+			assert(network.create_client(100, 9) == OK);
+		}
+		SteamMultiplayerPeer retry; retry._close(); assert(retry.create_client(100, 17) == OK);
+		for (int i = 0; i < 6; i++) {
+			SteamNetConnectionStatusChangedCallback_t event{next_connection - 1, k_ESteamNetworkingConnectionState_Connecting,
+				{k_ESteamNetworkingConnectionState_ClosedByPeer, -1, 100, 0, k_ESteamNetConnectionEnd_Remote_BadCert}};
+			retry.network_connection_status_changed(&event);
+			if (i < 5) { assert(last_virtual_port == 17 && retry.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTING); }
+		}
+		assert(retry.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+		SteamMultiplayerPeer mesh; mesh._close(); mesh.create_client(100, 9); mesh.add_peer(200, 8);
+		SteamNetConnectionStatusChangedCallback_t event{next_connection - 1, 1, {k_ESteamNetworkingConnectionState_ClosedByPeer, -1, 200, 0, 0}};
+		mesh.network_connection_status_changed(&event);
+		assert(mesh.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTING);
+		SteamMultiplayerPeer failed_retry; failed_retry._close(); failed_retry.create_client(100, 6);
+		event = {next_connection - 1, 1, {k_ESteamNetworkingConnectionState_ClosedByPeer, -1, 100, 0, k_ESteamNetConnectionEnd_Remote_BadCert}};
+		fail_connect = true; failed_retry.network_connection_status_changed(&event); fail_connect = false;
+		assert(failed_retry.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+	} else if (name == "C6") {
+		SteamMultiplayerPeer network; network.listen_socket = 33; network.refusing = true;
+		SteamNetConnectionStatusChangedCallback_t event{76, 0, {k_ESteamNetworkingConnectionState_Connecting, 0, 200, 33, 0}};
+		network.network_connection_status_changed(&event);
+		assert(closes[76] == 1 && !network.steam_connections.has(76) && network.peers.entries.empty());
+		network.refusing = false; auto existing = pending(network, 77); existing->set_peer_id(3); network.peers[3] = existing;
+		event.m_hConn = 78; event.m_info.m_nUserData = 3; network.network_connection_status_changed(&event);
+		assert(closes[78] == 1 && !network.steam_connections.has(78) && network.peers[3] == existing);
+	}
+}
+int main(int argc, char **argv) {
+	std::string selected = argc > 1 ? argv[1] : "all";
+	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6"}) {
+		if (selected == "all" || selected == name) { lifecycle_case(name); }
+	}
+	if (selected != "all") { std::cout << selected << "=PASS\n"; return 0; }
+
 	for (int64_t limit : {-10LL, 0LL, 1LL, 256LL, 2147483648LL}) {
 		configured_queue_limit = limit;
 		int expected = limit <= 0 ? 1 : limit > INT32_MAX ? INT32_MAX : static_cast<int>(limit);

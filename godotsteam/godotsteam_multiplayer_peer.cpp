@@ -93,20 +93,20 @@ MultiplayerPeer::TransferMode SteamMultiplayerPeer::_get_transfer_mode() const {
 }
 
 void SteamMultiplayerPeer::_disconnect_peer(int p_peer_id, bool p_force) {
-	// Let godot know our peer disconnected and erase from our maps
-	if (peers.has(p_peer_id)) {
-		steam_connections.erase(peers[p_peer_id]->get_connection_handle());
-		peers[p_peer_id]->disconnect_peer(p_force);
-		emit_signal("peer_disconnected", p_peer_id);
+	if (!peers.has(p_peer_id)) {
+		return;
 	}
 
-	// Clean up our local state
+	Ref<SteamPacketPeer> peer = peers[p_peer_id];
+	steam_connections.erase(peer->get_connection_handle());
 	peers.erase(p_peer_id);
+	peer->disconnect_peer(p_force);
 
-	// Close if this was the host we lost
+	// Complete teardown before a signal handler can start another session.
 	if (p_peer_id == 1 && connection_status != CONNECTION_DISCONNECTED) {
 		_close();
 	}
+	emit_signal("peer_disconnected", p_peer_id);
 }
 
 bool SteamMultiplayerPeer::_is_server() const {
@@ -160,6 +160,14 @@ void SteamMultiplayerPeer::_poll() {
 
 void SteamMultiplayerPeer::network_connection_status_changed(
 		SteamNetConnectionStatusChangedCallback_t *p_status_change) {
+	bool owned = steam_connections.has(p_status_change->m_hConn);
+	bool incoming = !owned && listen_socket != k_HSteamListenSocket_Invalid &&
+			p_status_change->m_info.m_hListenSocket == listen_socket &&
+			p_status_change->m_info.m_eState == k_ESteamNetworkingConnectionState_Connecting;
+	if (!owned && !incoming) {
+		return;
+	}
+
 	if (unlikely(debug_level > DEBUG_LEVEL_NONE)) {
 		WARN_PRINT(vformat(
 				"Connection from %ud changed from %ud to %ud",
@@ -181,44 +189,41 @@ void SteamMultiplayerPeer::network_connection_status_changed(
 						p_status_change->m_info.m_szEndDebug)
 						);
 			}
-			// Determine if we were previously connected
-			if (p_status_change->m_eOldState ==
-					k_ESteamNetworkingConnectionState_Connected) {
-				uint32_t connection_peer_id = p_status_change->m_info.m_nUserData;
-				if (peers.has(connection_peer_id) &&
-						peers[connection_peer_id]->get_connection_handle() == p_status_change->m_hConn) {
-					_disconnect_peer(connection_peer_id, true);
-				}
+			Ref<SteamPacketPeer> peer = steam_connections[p_status_change->m_hConn];
+			uint32_t connection_peer_id = peer->get_peer_id();
+			if (peers.has(connection_peer_id) &&
+					peers[connection_peer_id]->get_connection_handle() == p_status_change->m_hConn) {
+				_disconnect_peer(connection_peer_id, true);
+				return;
 			}
-			// Rejected and pending connections must not disconnect the ID they claimed.
+
 			steam_connections.erase(p_status_change->m_hConn);
+			peer->disconnect_peer(true);
 
-			// Clean up the connection, but the reason does not matter since it was
-			// closed on the other end
-			SteamAPI_ISteamNetworkingSockets_CloseConnection(
-					SteamAPI_SteamNetworkingSockets_SteamAPI(),
-					p_status_change->m_hConn, 0, nullptr, false
-					);
-
-			// If we were the client, attempt to reconnect
-			if (p_status_change->m_eOldState == k_ESteamNetworkingConnectionState_Connecting && p_status_change->m_info.m_eEndReason == k_ESteamNetConnectionEnd_Remote_BadCert && connection_retries < 5) {
-				if (unlikely(debug_level > DEBUG_LEVEL_NONE)) {
-					WARN_PRINT("Attempting to reconnect after bad cert.");
+			// Only failure of the designated host ends an initial client connection.
+			if (p_status_change->m_hConn == host_connection) {
+				host_connection = k_HSteamNetConnection_Invalid;
+				if (p_status_change->m_eOldState == k_ESteamNetworkingConnectionState_Connecting &&
+						p_status_change->m_info.m_eEndReason == k_ESteamNetConnectionEnd_Remote_BadCert && connection_retries < 5) {
+					connection_retries++;
+					if (add_peer(expected_host_steam_id, host_virtual_port) == OK) {
+						break;
+					}
 				}
-				add_peer(SteamAPI_SteamNetworkingIdentity_GetSteamID64(
-						&p_status_change->m_info.m_identityRemote)
-						);
-				connection_retries++;
+				_close();
 			}
 			break;
 		}
 		// A new incoming connection we should handle
 		case k_ESteamNetworkingConnectionState_Connecting: {
-			if (listen_socket != k_HSteamListenSocket_Invalid && p_status_change->m_info.m_hListenSocket == listen_socket) {
+			if (incoming) {
 				if (is_refusing_new_connections()) {
 					if (unlikely(debug_level > DEBUG_LEVEL_NONE)) {
 						WARN_PRINT("Connection refused because Godot peer is refusing connections.");
 					}
+					SteamAPI_ISteamNetworkingSockets_CloseConnection(
+							SteamAPI_SteamNetworkingSockets_SteamAPI(), p_status_change->m_hConn, 0,
+							"Connection refused by application.", false);
 					return;
 				}
 
@@ -232,11 +237,12 @@ void SteamMultiplayerPeer::network_connection_status_changed(
 				}
 
 				uint32_t connection_peer_id = p_status_change->m_info.m_nUserData;
-				ERR_FAIL_COND_MSG(
-						peers.has(connection_peer_id),
-						vformat("Attempting to connect peer %d but it already exists.",
-								connection_peer_id)
-						);
+				if (peers.has(connection_peer_id)) {
+					SteamAPI_ISteamNetworkingSockets_CloseConnection(
+							SteamAPI_SteamNetworkingSockets_SteamAPI(), p_status_change->m_hConn, 0,
+							"Peer ID already connected.", false);
+					return;
+				}
 
 				if (SteamAPI_ISteamNetworkingSockets_AcceptConnection(
 						SteamAPI_SteamNetworkingSockets_SteamAPI(),
@@ -262,21 +268,27 @@ void SteamMultiplayerPeer::network_connection_status_changed(
 						SteamAPI_SteamNetworkingSockets_SteamAPI(), p_status_change->m_hConn, 0,
 						nullptr, false
 						);
+				steam_connections.erase(p_status_change->m_hConn);
+				if (p_status_change->m_hConn == host_connection) {
+					_close();
+				}
 				WARN_PRINT("A connection was abandoned because it could not be added to a poll group.");
 				return;
 			}
 
-			// Create our packet peer
-			_add_pending_peer(SteamAPI_SteamNetworkingIdentity_GetSteamID64(
-					&p_status_change->m_info.m_identityRemote),
-					p_status_change->m_hConn,
-					SteamPacketPeer::PeerState::STATE_CONNECTING
-					);
+			if (!owned) {
+				_add_pending_peer(SteamAPI_SteamNetworkingIdentity_GetSteamID64(
+						&p_status_change->m_info.m_identityRemote),
+						p_status_change->m_hConn,
+						SteamPacketPeer::PeerState::STATE_CONNECTING);
+			}
 			break;
 		}
 		case k_ESteamNetworkingConnectionState_Connected: {
 			// Someone has finished connecting to us
-			connection_retries = 0;
+			if (p_status_change->m_hConn == host_connection) {
+				connection_retries = 0;
+			}
 			if (unlikely(debug_level > DEBUG_LEVEL_NONE)) {
 				WARN_PRINT(vformat( "Attempting to send peer ID to %ud",
 						(uint64_t)SteamAPI_SteamNetworkingIdentity_GetSteamID64(
@@ -380,6 +392,9 @@ void SteamMultiplayerPeer::_close() {
 	connection_status = CONNECTION_DISCONNECTED;
 	server = false;
 	expected_host_steam_id = 0;
+	host_connection = k_HSteamNetConnection_Invalid;
+	host_virtual_port = 0;
+	connection_retries = 0;
 
 	// This worked find in 4.17 with 4.4 godot-cpp branch but now will no longer compile
 //	if (Engine::get_singleton()->get_singleton_object("Steam") == nullptr) {
@@ -462,10 +477,14 @@ Error SteamMultiplayerPeer::_put_packet(const uint8_t *p_buffer, int p_buffer_si
 			vformat("Invalid target peer: %d", target_peer)
 			);
 
+	Error result = OK;
 	if (target_peer == 0) {
 		// Send to all peers
 		for (KeyValue<uint32_t, Ref<SteamPacketPeer>> &E : peers) {
-			E.value->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
+			Error sent = E.value->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
+			if (result == OK && sent != OK) {
+				result = sent;
+			}
 		}
 	} else if (peers.has(target_peer)) {
 		// Send to specific peer
@@ -473,17 +492,20 @@ Error SteamMultiplayerPeer::_put_packet(const uint8_t *p_buffer, int p_buffer_si
 		return peer->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
 	} else if (target_peer < 0) {
 		// We're in weird exclusion territory
-		int exclude = Math::abs(target_peer);
+		uint32_t exclude = Math::abs(target_peer);
 		for (KeyValue<uint32_t, Ref<SteamPacketPeer>> &E : peers) {
 			// GCC complains of different signedness: const unsigned int and int at 428
 			if (E.key == exclude) {
 				continue;
 			}
-			E.value->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
+			Error sent = E.value->send(_get_transfer_channel(), p_buffer, p_buffer_size, _get_steam_packet_flags());
+			if (result == OK && sent != OK) {
+				result = sent;
+			}
 		}
 	}
 
-	return OK;
+	return result;
 }
 
 int SteamMultiplayerPeer::_get_max_packet_size() const {
@@ -535,6 +557,7 @@ Error SteamMultiplayerPeer::create_client(uint64_t p_host_steam_id, int p_virtua
 
 	server = false;
 	expected_host_steam_id = p_host_steam_id;
+	host_virtual_port = p_virtual_port;
 	connection_retries = 0;
 	unique_id = generate_unique_id();
 
@@ -546,7 +569,10 @@ Error SteamMultiplayerPeer::create_client(uint64_t p_host_steam_id, int p_virtua
 	ERR_FAIL_COND_V(poll_group_created != OK, poll_group_created);
 
 	Error peer_created = add_peer(p_host_steam_id, p_virtual_port);
-	ERR_FAIL_COND_V(peer_created != OK, peer_created);
+	if (peer_created != OK) {
+		_close();
+		return peer_created;
+	}
 
 	set_refuse_new_connections(false);
 	connection_status = CONNECTION_CONNECTING;
@@ -570,6 +596,12 @@ Error SteamMultiplayerPeer::add_peer(uint64_t p_steam_id, int p_virtual_port) {
 
 	ERR_FAIL_COND_V(connection == k_HSteamNetConnection_Invalid, ERR_CANT_CREATE);
 
+	_add_pending_peer(p_steam_id, connection, SteamPacketPeer::STATE_CONNECTING);
+	ERR_FAIL_COND_V(!steam_connections.has(connection), ERR_CANT_CREATE);
+	if (!server && p_steam_id == expected_host_steam_id && host_connection == k_HSteamNetConnection_Invalid) {
+		host_connection = connection;
+	}
+
 	return OK;
 }
 
@@ -579,6 +611,9 @@ void SteamMultiplayerPeer::_add_pending_peer(
 	Ref<SteamPacketPeer> peer = memnew(SteamPacketPeer);
 	peer->set_steam_id(p_steam_id);
 	peer->set_connection_handle(p_connection_handle);
+	if (peer->get_connection_handle() == k_HSteamNetConnection_Invalid) {
+		return;
+	}
 	peer->set_state(p_peer_state);
 
 	steam_connections[p_connection_handle] = peer;
