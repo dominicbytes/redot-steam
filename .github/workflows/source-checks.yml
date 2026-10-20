@@ -25,3 +25,5 @@ jobs:
       - run: python tests/native/test_lane_bounds.py
       - run: python tests/native/test_core_wrappers.py
       - run: python tests/native/test_core_buffers.py
+      - run: python tests/test_signal_contracts.py
+      - run: python tests/native/test_ugc_user.py

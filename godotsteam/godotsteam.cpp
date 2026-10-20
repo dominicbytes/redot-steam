@@ -181,6 +181,7 @@ Steam::Steam() :
 	callbackIPCFailure(this, &Steam::ipc_failure),
 	callbackLicensesUpdated(this, &Steam::licenses_updated),
 	callbackMicrotransactionAuthResponse(this, &Steam::microtransaction_auth_response),
+	callbackSteamServerConnectFailed(this, &Steam::steam_server_connect_failed),
 	callbackSteamServerConnected(this, &Steam::steam_server_connected),
 	callbackSteamServerDisconnected(this, &Steam::steam_server_disconnected),
 	callbackValidateAuthTicketResponse(this, &Steam::validate_auth_ticket_response),
@@ -5481,6 +5482,7 @@ void Steam::getAppDependencies(uint64_t published_file_id) {
 // Returns the ids of the items downloaded.
 PackedInt64Array Steam::getDownloadedItems(uint32_t max_entries) {
 	PackedInt64Array downloaded_items;
+	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUGC() == nullptr, downloaded_items, "UGC class not found, Steam may not be initialized: getDownloadedItems");
 	PublishedFileId_t *items_downloaded = new PublishedFileId_t[max_entries];
 	uint32_t returned_entries = 0;
 	returned_entries = SteamAPI_ISteamUGC_GetDownloadedItems(SteamAPI_SteamUGC(), items_downloaded, max_entries);
@@ -5588,14 +5590,13 @@ Dictionary Steam::getQueryUGCAdditionalPreview(uint64_t query_handle, uint32_t i
 Dictionary Steam::getQueryUGCChildren(uint64_t query_handle, uint32_t index, uint32_t child_count) {
 	Dictionary children;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUGC() == nullptr, children, "UGC class not found, Steam may not be initialized: getQueryUGCChildren");
-	PackedVector2Array vec;
-	vec.resize(child_count);
-	bool success = SteamAPI_ISteamUGC_GetQueryUGCChildren(SteamAPI_SteamUGC(), (UGCQueryHandle_t)query_handle, index, (PublishedFileId_t *)vec.ptrw(), child_count);
+	std::vector<PublishedFileId_t> child_ids(child_count);
+	bool success = SteamAPI_ISteamUGC_GetQueryUGCChildren(SteamAPI_SteamUGC(), (UGCQueryHandle_t)query_handle, index, child_ids.data(), child_count);
 	if (success) {
 		Array godot_arr;
 		godot_arr.resize(child_count);
 		for (uint32_t i = 0; i < child_count; i++) {
-			godot_arr[i] = vec[i];
+			godot_arr[i] = (uint64_t)child_ids[i];
 		}
 
 		children["success"] = success;
@@ -5609,13 +5610,13 @@ Dictionary Steam::getQueryUGCChildren(uint64_t query_handle, uint32_t index, uin
 Dictionary Steam::getQueryUGCContentDescriptors(uint64_t query_handle, uint32_t index, uint32_t max_entries) {
 	Dictionary descriptors;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUGC() == nullptr, descriptors, "UGC class not found, Steam may not be initialized: getQueryUGCContentDescriptors");
-	PackedVector2Array vec;
-	vec.resize(max_entries);
-	uint32_t result = SteamAPI_ISteamUGC_GetQueryUGCContentDescriptors(SteamAPI_SteamUGC(), (UGCQueryHandle_t)query_handle, index, (EUGCContentDescriptorID *)vec.ptrw(), max_entries);
+	std::vector<EUGCContentDescriptorID> descriptor_ids(max_entries);
+	uint32_t result = SteamAPI_ISteamUGC_GetQueryUGCContentDescriptors(SteamAPI_SteamUGC(), (UGCQueryHandle_t)query_handle, index, descriptor_ids.data(), max_entries);
 	Array descriptor_array;
-	descriptor_array.resize(max_entries);
-	for (uint32_t i = 0; i < max_entries; i++) {
-		descriptor_array[i] = vec[i];
+	uint32_t count = MIN(result, max_entries);
+	descriptor_array.resize(count);
+	for (uint32_t i = 0; i < count; i++) {
+		descriptor_array[i] = (int)descriptor_ids[i];
 	}
 	descriptors["result"] = result;
 	descriptors["handle"] = query_handle;
@@ -5780,9 +5781,9 @@ Array Steam::getSubscribedItems(bool include_locally_disabled) {
 Dictionary Steam::getSupportedGameVersionData(uint64_t query_handle, uint32_t index, uint32_t version_index) {
 	Dictionary supported_version;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUGC() == nullptr, supported_version, "UGC class not found, Steam may not be initialized: getSupportedGameVersionData");
-	char branch_min[STEAM_BUFFER_SIZE];
-	char branch_max[STEAM_BUFFER_SIZE];
-	uint32_t branch_size = 0;
+	char branch_min[STEAM_BUFFER_SIZE]{};
+	char branch_max[STEAM_BUFFER_SIZE]{};
+	uint32_t branch_size = sizeof(branch_min);
 	if (SteamAPI_ISteamUGC_GetSupportedGameVersionData(SteamAPI_SteamUGC(), (UGCQueryHandle_t)query_handle, index, version_index, branch_min, branch_max, branch_size)) {
 		supported_version["min"] = branch_min;
 		supported_version["max"] = branch_max;
@@ -5795,11 +5796,10 @@ Dictionary Steam::getSupportedGameVersionData(uint64_t query_handle, uint32_t in
 Array Steam::getUserContentDescriptorPreferences(uint32_t max_entries) {
 	Array descriptors;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUGC() == nullptr, descriptors, "UGC class not found, Steam may not be initialized: getUserContentDescriptorPreferences");
-	EUGCContentDescriptorID *descriptor_list = new EUGCContentDescriptorID[max_entries];
-	// What is this actually returning?
-	SteamAPI_ISteamUGC_GetUserContentDescriptorPreferences(SteamAPI_SteamUGC(), descriptor_list, max_entries);
-	for (uint32_t i = 0; i < max_entries; i++) {
-		descriptors.append(descriptor_list[i]);
+	std::vector<EUGCContentDescriptorID> descriptor_list(max_entries);
+	uint32_t count = SteamAPI_ISteamUGC_GetUserContentDescriptorPreferences(SteamAPI_SteamUGC(), descriptor_list.data(), max_entries);
+	for (uint32_t i = 0; i < MIN(count, max_entries); i++) {
+		descriptors.append((int)descriptor_list[i]);
 	}
 	return descriptors;
 }
@@ -5822,7 +5822,11 @@ void Steam::getWorkshopEULAStatus() {
 // Releases a UGC query handle when you are done with it to free up memory.
 bool Steam::releaseQueryUGCRequest(uint64_t query_handle) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUGC() == nullptr, false, "UGC class not found, Steam may not be initialized: releaseQueryUGCRequest");
-	return SteamAPI_ISteamUGC_ReleaseQueryUGCRequest(SteamAPI_SteamUGC(), (UGCQueryHandle_t)query_handle);
+	bool success = SteamAPI_ISteamUGC_ReleaseQueryUGCRequest(SteamAPI_SteamUGC(), (UGCQueryHandle_t)query_handle);
+	if (success) {
+		callResultsUGCQueryCompleted.erase(query_handle);
+	}
+	return success;
 }
 
 // Remove all existing key-value tags (you can add new ones via the addItemKeyValueTag function).
@@ -5879,8 +5883,10 @@ bool Steam::removeItemPreview(uint64_t update_handle, uint32_t index) {
 // Send a UGC query to Steam.
 void Steam::sendQueryUGCRequest(uint64_t query_handle) {
 	ERR_FAIL_COND_MSG(SteamAPI_SteamUGC() == nullptr, "UGC class not found, Steam may not be initialized: sendQueryUGCRequest");
+	ERR_FAIL_COND_MSG(callResultsUGCQueryCompleted.count(query_handle) != 0, "Query is already pending: sendQueryUGCRequest");
 	SteamAPICall_t api_call = SteamAPI_ISteamUGC_SendQueryUGCRequest(SteamAPI_SteamUGC(), (UGCQueryHandle_t)query_handle);
-	callResultUGCQueryCompleted.Set(api_call, this, &Steam::ugc_query_completed);
+	ERR_FAIL_COND_MSG(api_call == k_uAPICallInvalid, "Invalid API call: sendQueryUGCRequest");
+	callResultsUGCQueryCompleted[query_handle].Set(api_call, this, &Steam::ugc_query_completed);
 }
 
 // Admin queries return hidden items.
@@ -5988,7 +5994,9 @@ bool Steam::setItemsDisabledLocally(PackedInt64Array published_file_ids, bool di
 	for (uint32_t i = 0; i < file_count; i++) {
 		file_ids[i] = (uint64_t)published_file_ids[i];
 	}
-	return SteamAPI_ISteamUGC_SetItemsDisabledLocally(SteamAPI_SteamUGC(), file_ids, file_count, disabled_locally);
+	bool success = SteamAPI_ISteamUGC_SetItemsDisabledLocally(SteamAPI_SteamUGC(), file_ids, file_count, disabled_locally);
+	delete[] file_ids;
+	return success;
 }
 
 // Sets the language to return the title and description in for the items on a pending UGC Query.
@@ -6081,7 +6089,9 @@ bool Steam::setSubscriptionsLoadOrder(PackedInt64Array published_file_ids) {
 	for (uint32_t i = 0; i < file_count; i++) {
 		file_ids[i] = (uint64_t)published_file_ids[i];
 	}
-	return SteamAPI_ISteamUGC_SetSubscriptionsLoadOrder(SteamAPI_SteamUGC(), file_ids, file_count);
+	bool success = SteamAPI_ISteamUGC_SetSubscriptionsLoadOrder(SteamAPI_SteamUGC(), file_ids, file_count);
+	delete[] file_ids;
+	return success;
 }
 
 // Set the time range this item was created.
@@ -6222,6 +6232,7 @@ void Steam::advertiseGame(const String &server_ip, int port) {
 // Authenticate the ticket from the entity Steam ID to be sure it is valid and isn't reused.
 Steam::BeginAuthSessionResult Steam::beginAuthSession(PackedByteArray ticket, int ticket_size, uint64_t steam_id) {
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUser() == nullptr, BeginAuthSessionResult(-1), "User class not found, Steam may not be initialized: beginAuthSession");
+	ERR_FAIL_COND_V_MSG(ticket_size < 0 || ticket_size > ticket.size(), BEGIN_AUTH_SESSION_RESULT_INVALID_TICKET, "Invalid auth ticket size: beginAuthSession");
 	return (BeginAuthSessionResult)SteamAPI_ISteamUser_BeginAuthSession(SteamAPI_SteamUser(), ticket.ptr(), ticket_size, steam_id);
 }
 
@@ -6378,7 +6389,9 @@ Dictionary Steam::initiateGameConnection(uint64_t server_id, String server_ip, u
 	PackedByteArray auth;
 	int auth_size = 2048;
 	auth.resize(auth_size);
-	if (SteamAPI_ISteamUser_InitiateGameConnection_DEPRECATED(SteamAPI_SteamUser(), &auth, auth_size, server_id, getIPFromString(server_ip), server_port, secure) > 0) {
+	int written = SteamAPI_ISteamUser_InitiateGameConnection_DEPRECATED(SteamAPI_SteamUser(), auth.ptrw(), auth_size, server_id, getIPFromString(server_ip), server_port, secure);
+	if (written > 0 && written <= auth_size) {
+		auth.resize(written);
 		connection["auth_blob"] = auth;
 		connection["server_id"] = server_id;
 		connection["server_ip"] = server_ip;
@@ -6635,10 +6648,9 @@ double Steam::getGlobalStatFloat(const String &stat_name) {
 PackedInt64Array Steam::getGlobalStatIntHistory(const String &stat_name) {
 	PackedInt64Array history_ints;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUserStats() == nullptr, history_ints, "User Stats class not found, Steam may not be initialized: getGlobalStatIntHistory");
-	uint32_t history_size = 0;
-	int64 *history = nullptr;
-	int32_t histories = SteamAPI_ISteamUserStats_GetGlobalStatHistoryInt64(SteamAPI_SteamUserStats(), stat_name.utf8().get_data(), history, history_size);
-	for (int32_t i = 0; i < histories; i++) {
+	int64 history[60]{};
+	int32_t histories = SteamAPI_ISteamUserStats_GetGlobalStatHistoryInt64(SteamAPI_SteamUserStats(), stat_name.utf8().get_data(), history, sizeof(history));
+	for (int32_t i = 0; i < MIN(histories, 60); i++) {
 		history_ints.append(history[i]);
 	}
 	return history_ints;
@@ -6648,10 +6660,9 @@ PackedInt64Array Steam::getGlobalStatIntHistory(const String &stat_name) {
 PackedFloat64Array Steam::getGlobalStatFloatHistory(const String &stat_name) {
 	PackedFloat64Array history_floats;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUserStats() == nullptr, history_floats, "User Stats class not found, Steam may not be initialized: getGlobalStatFloatHistory");
-	uint32_t history_size = 0;
-	double *history = nullptr;
-	int32_t histories = SteamAPI_ISteamUserStats_GetGlobalStatHistoryDouble(SteamAPI_SteamUserStats(), stat_name.utf8().get_data(), history, history_size);
-	for (int32_t i = 0; i < histories; i++) {
+	double history[60]{};
+	int32_t histories = SteamAPI_ISteamUserStats_GetGlobalStatHistoryDouble(SteamAPI_SteamUserStats(), stat_name.utf8().get_data(), history, sizeof(history));
+	for (int32_t i = 0; i < MIN(histories, 60); i++) {
 		history_floats.append(history[i]);
 	}
 	return history_floats;
@@ -6972,8 +6983,8 @@ Dictionary Steam::getImageRGBA(int image_handle) {
 Dictionary Steam::getImageSize(int image_handle) {
 	Dictionary image_data;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamUtils() == nullptr, image_data, "Utils class not found, Steam may not be initialized: getImageSize");
-	uint32_t width;
-	uint32_t height;
+	uint32_t width = 0;
+	uint32_t height = 0;
 	image_data["success"] = SteamAPI_ISteamUtils_GetImageSize(SteamAPI_SteamUtils(), image_handle, &width, &height);
 	image_data["width"] = width;
 	image_data["height"] = height;
@@ -7201,7 +7212,9 @@ void Steam::file_details_result(FileDetailsResult_t *file_data) {
 	uint32_t result = file_data->m_eResult;
 	uint64_t file_size = file_data->m_ulFileSize;
 	uint32_t flags = file_data->m_unFlags;
-	uint8_t *file_hash = file_data->m_FileSHA;
+	PackedByteArray file_hash;
+	file_hash.resize(sizeof(file_data->m_FileSHA));
+	memcpy(file_hash.ptrw(), file_data->m_FileSHA, sizeof(file_data->m_FileSHA));
 	emit_signal("file_details_result", result, file_size, file_hash, flags);
 }
 
@@ -7284,7 +7297,7 @@ void Steam::friend_rich_presence_update(FriendRichPresenceUpdate_t *call_data) {
 void Steam::connected_chat_join(GameConnectedChatJoin_t *call_data) {
 	uint64_t chat_id = call_data->m_steamIDClanChat.ConvertToUint64();
 	uint64_t steam_id = call_data->m_steamIDUser.ConvertToUint64();
-	emit_signal("connected_chat_joined", chat_id, steam_id);
+	emit_signal("connected_chat_join", chat_id, steam_id);
 }
 
 // Called when a user has left a Steam group chat that the we are in.
@@ -7293,7 +7306,7 @@ void Steam::connected_chat_leave(GameConnectedChatLeave_t *call_data) {
 	uint64_t steam_id = call_data->m_steamIDUser.ConvertToUint64();
 	bool kicked = call_data->m_bKicked;
 	bool dropped = call_data->m_bDropped;
-	emit_signal("connected_chat_left", chat_id, steam_id, kicked, dropped);
+	emit_signal("connected_chat_leave", chat_id, steam_id, kicked, dropped);
 }
 
 // Called when a chat message has been received in a Steam group chat that we are in.
@@ -7362,7 +7375,7 @@ void Steam::change_server_requested(GameServerChangeRequested_t *call_data) {
 void Steam::join_clan_chat_complete(JoinClanChatRoomCompletionResult_t *call_data) {
 	uint64_t chat_id = call_data->m_steamIDClanChat.ConvertToUint64();
 	EChatRoomEnterResponse response = call_data->m_eChatRoomEnterResponse;
-	emit_signal("chat_join_complete", chat_id, response);
+	emit_signal("join_clan_chat_complete", chat_id, response);
 }
 
 // Signal for a user change
@@ -8068,7 +8081,7 @@ void Steam::parental_setting_changed(SteamParentalSettingsChanged_t *call_data) 
 void Steam::reservation_notification(ReservationNotificationCallback_t *call_data) {
 	uint64_t beacon_id = call_data->m_ulBeaconID;
 	uint64_t steam_id = call_data->m_steamIDJoiner.ConvertToUint64();
-	emit_signal("reservation_notifications", beacon_id, steam_id);
+	emit_signal("reservation_notification", beacon_id, steam_id);
 }
 
 // Notification that the list of available locations for posting a beacon has been updated.
@@ -8097,7 +8110,7 @@ void Steam::remote_play_session_avatar_loaded(SteamRemotePlaySessionAvatarLoaded
 	int image_index = call_data->m_iImage;
 	int width = call_data->m_iWide;
 	int height = call_data->m_iTall;
-	emit_signal("remote_play_session_avatar_loaded", session_id);
+	emit_signal("remote_play_session_avatar_loaded", session_id, image_index, width, height);
 }
 
 // The session ID of the session that just connected.
@@ -8300,15 +8313,22 @@ void Steam::user_stats_unloaded(UserStatsUnloaded_t *call_data) {
 // Called when the big picture gamepad text input has been closed.
 void Steam::gamepad_text_input_dismissed(GamepadTextInputDismissed_t *call_data) {
 	bool was_submitted = call_data->m_bSubmitted;
-	const uint32_t buffer_length = 1024;
-	char text[buffer_length + 1]{};
-	uint32_t length = 0;
+	String entered_text;
 	uint32_t app_id = call_data->m_unAppID;
 	if (was_submitted) {
-		SteamAPI_ISteamUtils_GetEnteredGamepadTextInput(SteamAPI_SteamUtils(), text, buffer_length);
-		length = SteamAPI_ISteamUtils_GetEnteredGamepadTextLength(SteamAPI_SteamUtils());
+		uint32_t length = SteamAPI_ISteamUtils_GetEnteredGamepadTextLength(SteamAPI_SteamUtils());
+		if (length < INT32_MAX) {
+			std::vector<char> text(length + 1, '\0');
+			was_submitted = SteamAPI_ISteamUtils_GetEnteredGamepadTextInput(SteamAPI_SteamUtils(), text.data(), (uint32_t)text.size());
+			if (was_submitted) {
+				entered_text = String::utf8(text.data(), (int)length);
+			}
+		}
+		else {
+			was_submitted = false;
+		}
 	}
-	emit_signal("gamepad_text_input_dismissed", was_submitted, String::utf8(text, (int)length), app_id);
+	emit_signal("gamepad_text_input_dismissed", was_submitted, entered_text, app_id);
 }
 
 // Called when the country of the user changed. The country should be updated with getIPCountry.
@@ -8449,7 +8469,7 @@ void Steam::get_follower_count(FriendsGetFollowerCount_t *call_data, bool io_fai
 	EResult result = call_data->m_eResult;
 	uint64_t steam_id = call_data->m_steamID.ConvertToUint64();
 	int count = call_data->m_nCount;
-	emit_signal("follower_count", result, steam_id, count);
+	emit_signal("get_follower_count", result, steam_id, count);
 }
 
 // Returns the result of isFollowing.
@@ -8492,7 +8512,7 @@ void Steam::inventory_eligible_promo_item(SteamInventoryEligiblePromoItemDefIDs_
 		}
 	}
 	delete[] id_array;
-	emit_signal("inventory_eligible_promo_Item", result, cached, definitions);
+	emit_signal("inventory_eligible_promo_item", result, cached, definitions);
 }
 
 // Returned after StartPurchase is called.
@@ -8800,6 +8820,15 @@ void Steam::stop_playtime_tracking(StopPlaytimeTrackingResult_t *call_data, bool
 
 // Called when a UGC query request completes.
 void Steam::ugc_query_completed(SteamUGCQueryCompleted_t *call_data, bool io_failure) {
+	// The SDK marks the completed call inactive before invoking this handler.
+	for (auto it = callResultsUGCQueryCompleted.begin(); it != callResultsUGCQueryCompleted.end();) {
+		if (!it->second.IsActive()) {
+			it = callResultsUGCQueryCompleted.erase(it);
+		}
+		else {
+			++it;
+		}
+	}
 	ERR_FAIL_COND_MSG(io_failure, "ugc_query_completed signal failed internally");
 	UGCQueryHandle_t handle = call_data->m_handle;
 	EResult result = call_data->m_eResult;
@@ -8895,11 +8924,10 @@ void Steam::market_eligibility_response(MarketEligibilityResponse_t *call_data, 
 
 // Called when a connection attempt has failed. This will occur periodically if the Steam client is not connected, and
 // has failed when retrying to establish a connection.
-void Steam::steam_server_connect_failed(SteamServerConnectFailure_t *call_data, bool io_failure) {
-	ERR_FAIL_COND_MSG(io_failure, "steam_server_connect_failed signal failed internally");
+void Steam::steam_server_connect_failed(SteamServerConnectFailure_t *call_data) {
 	int result = call_data->m_eResult;
 	bool retrying = call_data->m_bStillRetrying;
-	emit_signal("steam_server_connected_failed", result, retrying);
+	emit_signal("steam_server_connect_failed", result, retrying);
 }
 
 // Response when we have recieved the authentication URL after a call to requestStoreAuthURL.
@@ -8965,9 +8993,10 @@ void Steam::leaderboard_scores_downloaded(LeaderboardScoresDownloaded_t *call_da
 			entry_dict["ugc_handle"] = uint64_t(entry->m_hUGC);
 			if (leaderboard_details_max > 0) {
 				PackedInt32Array array;
-				array.resize(leaderboard_details_max);
+				int detail_count = CLAMP(entry->m_cDetails, 0, leaderboard_details_max);
+				array.resize(detail_count);
 				int32_t *ptr = array.ptrw();
-				for (int j = 0; j < leaderboard_details_max; j++) {
+				for (int j = 0; j < detail_count; j++) {
 					ptr[j] = details_pointer[j];
 				}
 				entry_dict["details"] = array;
@@ -9728,6 +9757,7 @@ void Steam::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("getDurationControl"), &Steam::getDurationControl);
 	ClassDB::bind_method(D_METHOD("getEncryptedAppTicket"), &Steam::getEncryptedAppTicket);
 	ClassDB::bind_method(D_METHOD("getGameBadgeLevel", "series", "foil"), &Steam::getGameBadgeLevel);
+	ClassDB::bind_method(D_METHOD("getMarketEligibility"), &Steam::getMarketEligibility);
 	ClassDB::bind_method(D_METHOD("getPlayerSteamLevel"), &Steam::getPlayerSteamLevel);
 	ClassDB::bind_method(D_METHOD("getSteamID"), &Steam::getSteamID);
 	ClassDB::bind_method(D_METHOD("getVoice", "buffer_size"), &Steam::getVoice, DEFVAL(1024));
@@ -9839,7 +9869,7 @@ void Steam::_bind_methods() {
 	///// SIGNALS / CALLBACKS
 
 	// APPS
-	ADD_SIGNAL(MethodInfo("file_details_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_size"), PropertyInfo(Variant::INT, "file_hash"), PropertyInfo(Variant::INT, "flags")));
+	ADD_SIGNAL(MethodInfo("file_details_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_size"), PropertyInfo(Variant::PACKED_BYTE_ARRAY, "file_hash"), PropertyInfo(Variant::INT, "flags")));
 	ADD_SIGNAL(MethodInfo("dlc_installed", PropertyInfo(Variant::INT, "app")));
 	ADD_SIGNAL(MethodInfo("new_launch_url_parameters"));
 	ADD_SIGNAL(MethodInfo("timed_trial_status", PropertyInfo(Variant::INT, "app_id"), PropertyInfo(Variant::BOOL, "is_offline"), PropertyInfo(Variant::INT, "seconds_allowed"), PropertyInfo(Variant::INT, "seconds_played")));
@@ -9852,8 +9882,8 @@ void Steam::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("connected_chat_join", PropertyInfo(Variant::INT, "chat_id"), PropertyInfo(Variant::INT, "steam_id")));
 	ADD_SIGNAL(MethodInfo("connected_chat_leave", PropertyInfo(Variant::INT, "chat_id"), PropertyInfo(Variant::INT, "steam_id"), PropertyInfo(Variant::BOOL, "kicked"), PropertyInfo(Variant::BOOL, "dropped")));
 	ADD_SIGNAL(MethodInfo("connected_clan_chat_message", PropertyInfo(Variant::INT, "clan_chat_id"), PropertyInfo(Variant::INT, "message_index"), PropertyInfo(Variant::STRING, "message_text"), PropertyInfo(Variant::INT, "type"), PropertyInfo(Variant::INT, "chatter")));
-	ADD_SIGNAL(MethodInfo("connected_friend_chat_message", PropertyInfo(Variant::INT, "steam_id"), PropertyInfo(Variant::INT, "message_index"), PropertyInfo(Variant::INT, "message_text"), PropertyInfo(Variant::INT, "type")));
-	ADD_SIGNAL(MethodInfo("enumerate_following_list", PropertyInfo(Variant::STRING, "message"), PropertyInfo(Variant::PACKED_INT64_ARRAY, "following")));
+	ADD_SIGNAL(MethodInfo("connected_friend_chat_message", PropertyInfo(Variant::INT, "steam_id"), PropertyInfo(Variant::INT, "message_index"), PropertyInfo(Variant::STRING, "message_text"), PropertyInfo(Variant::INT, "type")));
+	ADD_SIGNAL(MethodInfo("enumerate_following_list", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::PACKED_INT64_ARRAY, "following"), PropertyInfo(Variant::INT, "returned_following"), PropertyInfo(Variant::INT, "total_following")));
 	ADD_SIGNAL(MethodInfo("equipped_profile_items", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "steam_id"), PropertyInfo(Variant::DICTIONARY, "profile_data")));
 	ADD_SIGNAL(MethodInfo("equipped_profile_items_changed", PropertyInfo(Variant::INT, "steam_id")));
 	ADD_SIGNAL(MethodInfo("friend_rich_presence_update", PropertyInfo(Variant::INT, "steam_id"), PropertyInfo(Variant::INT, "app_id")));
@@ -9878,6 +9908,7 @@ void Steam::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("end_game_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "game_id")));
 
 	// HTML SURFACE
+	ADD_SIGNAL(MethodInfo("html_browser_restarted", PropertyInfo(Variant::INT, "browser_handle"), PropertyInfo(Variant::INT, "old_browser_handle")));
 	ADD_SIGNAL(MethodInfo("html_browser_ready", PropertyInfo(Variant::INT, "browser_handle")));
 	ADD_SIGNAL(MethodInfo("html_can_go_backandforward", PropertyInfo(Variant::INT, "browser_handle"), PropertyInfo(Variant::BOOL, "go_back"), PropertyInfo(Variant::BOOL, "go_forward")));
 	ADD_SIGNAL(MethodInfo("html_changed_title", PropertyInfo(Variant::INT, "browser_handle"), PropertyInfo(Variant::STRING, "title")));
@@ -10009,12 +10040,12 @@ void Steam::_bind_methods() {
 	// UGC
 	ADD_SIGNAL(MethodInfo("add_app_dependency_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "app_id")));
 	ADD_SIGNAL(MethodInfo("add_ugc_dependency_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "child_id")));
-	ADD_SIGNAL(MethodInfo("get_app_dependencies_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "app_dependencies"), PropertyInfo(Variant::INT, "total_app_dependencies"), PropertyInfo(Variant::PACKED_INT32_ARRAY, "app_ids")));
+	ADD_SIGNAL(MethodInfo("get_app_dependencies_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::PACKED_INT32_ARRAY, "app_ids"), PropertyInfo(Variant::INT, "app_dependencies"), PropertyInfo(Variant::INT, "total_app_dependencies")));
 	ADD_SIGNAL(MethodInfo("get_item_vote_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::BOOL, "vote_up"), PropertyInfo(Variant::BOOL, "vote_down"), PropertyInfo(Variant::BOOL, "vote_skipped")));
 	ADD_SIGNAL(MethodInfo("item_created", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::BOOL, "accept_tos")));
 	ADD_SIGNAL(MethodInfo("item_deleted", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id")));
 	ADD_SIGNAL(MethodInfo("item_downloaded", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "app_id")));
-	ADD_SIGNAL(MethodInfo("item_installed", PropertyInfo(Variant::INT, "app_id"), PropertyInfo(Variant::INT, "file_id")));
+	ADD_SIGNAL(MethodInfo("item_installed", PropertyInfo(Variant::INT, "app_id"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "legacy_content"), PropertyInfo(Variant::INT, "manifest_id")));
 	ADD_SIGNAL(MethodInfo("item_updated", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::BOOL, "need_to_accept_tos"), PropertyInfo(Variant::INT, "file_id")));
 	ADD_SIGNAL(MethodInfo("remove_app_dependency_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "app_id")));
 	ADD_SIGNAL(MethodInfo("remove_ugc_dependency_result", PropertyInfo(Variant::INT, "result"), PropertyInfo(Variant::INT, "file_id"), PropertyInfo(Variant::INT, "child_id")));
@@ -11144,6 +11175,17 @@ void Steam::_bind_methods() {
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_GENERIC_MISC6);
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_GENERIC_MISC7);
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_GENERIC_MISC8);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_A);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_B);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_X);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_Y);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_BUMPER);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_BUMPER);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_PLUS);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_MINUS);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_CAPTURE);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_PULL);
+	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_TRIGGER_CLICK);
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_PULL);
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_RIGHT_TRIGGER_CLICK);
 	BIND_ENUM_CONSTANT(INPUT_ACTION_ORIGIN_SWITCH2_LEFT_STICK_MOVE);
