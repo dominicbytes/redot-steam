@@ -1288,7 +1288,7 @@
 			<description>
 				Grants specific items to the current user, for developers only.
 				This API is only intended for prototyping - it is only usable by Steam accounts that belong to the publisher group for your game.
-				You can pass in an array of items, identified by their item definition int's and optionally a second array of corresponding quantities for each item. The length of these arrays must match!
+				You can pass in an array of items, identified by their item definition int's and optionally a second array of corresponding quantities for each item. A non-empty quantity array must have the same length as [param items]; pass an empty array to grant one of each item.
 				The inventory handle, which is also stored internally. It will overwrite any previously stored inventory handle.
 				[b]Note:[/b] You must call [method Steam.destroyResult] on the provided inventory result when you are done with it.
 			</description>

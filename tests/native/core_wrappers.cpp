@@ -143,7 +143,7 @@ void SteamAPI_ISteamFriends_GetFriendsGroupMembersList(int *, FriendsGroupID_t, 
 	native_calls++; for (int i=0; i<n; i++) ids[i]=CSteamID(100+i);
 }
 bool SteamAPI_ISteamInventory_ExchangeItems(int *, int32_t *handle, const SteamItemDef_t *, const uint32_t *, uint32_t out_n, const SteamItemInstanceID_t *, const uint32_t *, uint32_t in_n) { native_calls++; assert(out_n==2 && in_n==1); *handle=8; return true; }
-bool SteamAPI_ISteamInventory_GenerateItems(int *, int32_t *handle, const SteamItemDef_t *items, const uint32_t *qty, uint32_t n) { native_calls++; item_defs.assign(items,items+n); quantities.assign(qty,qty+n); *handle=9; return true; }
+bool SteamAPI_ISteamInventory_GenerateItems(int *, int32_t *handle, const SteamItemDef_t *items, const uint32_t *qty, uint32_t n) { native_calls++; item_defs.assign(items,items+n); if (qty) quantities.assign(qty,qty+n); else quantities.clear(); *handle=9; return true; }
 SteamAPICall_t SteamAPI_ISteamInventory_StartPurchase(int *, const SteamItemDef_t *items, const uint32_t *qty, uint32_t n) { native_calls++; item_defs.assign(items,items+n); quantities.assign(qty,qty+n); return 10; }
 bool SteamAPI_ISteamInventory_GetResultItems(int *, int32_t handle, SteamItemDetails_t *items, uint32_t *size) {
 	result_queries++; assert(handle==7); if (items) { assert(*size==1); items[0]=SteamItemDetails_t(); } *size=1; return true;
@@ -199,6 +199,7 @@ int main() {
 	steam.startPurchase({1,2},{1}); assert(native_calls==0);
 	assert(steam.exchangeItems({1,2},{1,2},{3},{1})==8);
 	assert(steam.generateItems({1,2},{3,4})==9 && quantities==std::vector<uint32_t>({3,4}));
+	assert(steam.generateItems({1,2},{})==9 && item_defs==std::vector<int32_t>({1,2}) && quantities.empty());
 	steam.startPurchase({5,6},{7,8}); assert(item_defs==std::vector<int32_t>({5,6}) && quantities==std::vector<uint32_t>({7,8}));
 	steam.inventory_handle=7; assert(steam.getResultItems(0).size()==1 && result_queries==2);
 	assert(steam.getResultItems(7).size()==1 && result_queries==4);

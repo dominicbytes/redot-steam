@@ -2527,7 +2527,8 @@ int32 Steam::exchangeItems(const PackedInt64Array output_items, const PackedInt3
 int32 Steam::generateItems(const PackedInt64Array items, const PackedInt32Array quantity) {
 	int32 new_inventory_handle = 0;
 	ERR_FAIL_COND_V_MSG(SteamAPI_SteamInventory() == nullptr, new_inventory_handle, "Inventory class not found, Steam may not be initialized: generateItems");
-	ERR_FAIL_COND_V_MSG(items.size() != quantity.size(), new_inventory_handle, "Item and quantity counts must match: generateItems");
+	// An empty quantity array asks Steam for one of each item.
+	ERR_FAIL_COND_V_MSG(!quantity.is_empty() && items.size() != quantity.size(), new_inventory_handle, "Item and quantity counts must match: generateItems");
 	uint32_t total_quantity = items.size();
 	SteamItemDef_t *generated_items = new SteamItemDef_t[total_quantity];
 
@@ -2535,7 +2536,7 @@ int32 Steam::generateItems(const PackedInt64Array items, const PackedInt32Array 
 		generated_items[i] = items[i];
 	}
 
-	const uint32_t *this_quantity = (const uint32_t*) quantity.ptr();
+	const uint32_t *this_quantity = quantity.is_empty() ? nullptr : (const uint32_t*) quantity.ptr();
 	if (SteamAPI_ISteamInventory_GenerateItems(SteamAPI_SteamInventory(), &new_inventory_handle, generated_items, this_quantity, items.size())) {
 		inventory_handle = new_inventory_handle;
 	}
