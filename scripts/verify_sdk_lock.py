@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def verify_sdk(sdk: Path) -> None:
     lock = json.loads((ROOT / "scripts/sdk-input-lock.json").read_text(encoding="utf-8"))
     for relative, expected in lock["trees"].items():
-        if tree_digest(sdk / relative) != expected:
+        if tree_digest(sdk / relative, lock["text_extensions"]) != expected:
             raise AssertionError(f"SDK input hash mismatch: {relative}")
 
 

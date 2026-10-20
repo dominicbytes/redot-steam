@@ -202,14 +202,18 @@ class InventoryAndManifestTests(unittest.TestCase):
             with mock.patch.object(sys, "argv", argv), self.assertRaises(AssertionError):
                 manifest.main()
             self.assertFalse(output.exists())
-            for relative in ("public/steam/header", "redistributable_bin/runtime"):
+            for relative in ("public/steam/header.h", "redistributable_bin/runtime.dll"):
                 path = sdk / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(b"input")
+                path.write_bytes(b"input\r\n")
             with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(manifest.main(), 0)
             observed = json.loads(output.read_text())
             self.assertFalse(observed["build_provenance_verified"])
+            sdk_observed = observed["steamworks_sdk_observed_at_manifest_creation"]
+            self.assertEqual(sdk_observed["public_headers_tree_sha256"], manifest.tree_digest(sdk / "public/steam"))
+            self.assertNotEqual(sdk_observed["public_headers_tree_sha256"], sdk_observed["public_headers_admission_tree_sha256"])
+            self.assertEqual(sdk_observed["redistributables_tree_sha256"], sdk_observed["redistributables_admission_tree_sha256"])
             self.assertNotIn("redot", observed)
             self.assertNotIn("used_for_build", observed["steamworks_sdk_observed_at_manifest_creation"])
 
@@ -221,12 +225,49 @@ class InventoryAndManifestTests(unittest.TestCase):
             header = tree / "header"
             header.write_bytes(b"admitted")
             (root / "scripts").mkdir()
-            (root / "scripts/sdk-input-lock.json").write_text(json.dumps({"trees": {"public/steam": manifest.tree_digest(tree)}}))
+            (root / "scripts/sdk-input-lock.json").write_text(json.dumps({"text_extensions": manifest.SDK_TEXT_EXTENSIONS, "trees": {"public/steam": manifest.tree_digest(tree)}}))
             with mock.patch.object(sdk_lock, "ROOT", root):
                 sdk_lock.verify_sdk(root / "sdk")
                 header.write_bytes(b"changed")
                 with self.assertRaises(AssertionError):
                     sdk_lock.verify_sdk(root / "sdk")
+
+
+    def test_sdk_admission_normalizes_only_designated_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sdk = root / "sdk"
+            headers = sdk / "public/steam"
+            redist = sdk / "redistributable_bin"
+            headers.mkdir(parents=True)
+            redist.mkdir(parents=True)
+            # Create in reverse order to exercise relative POSIX-name sorting.
+            contents = {"z.h": b"int z;\r\n", "nested/a.json": b"{}\r\n", "a.h": b"int a;\r\n"}
+            for name, content in contents.items():
+                path = headers / name
+                path.parent.mkdir(exist_ok=True)
+                path.write_bytes(content)
+            (headers / "runtime.so").write_bytes(b"binary\r\n")
+            runtime = redist / "runtime.dll"
+            runtime.write_bytes(b"binary\r\n")
+            trees = {name: manifest.tree_digest(sdk / name, manifest.SDK_TEXT_EXTENSIONS) for name in ("public/steam", "redistributable_bin")}
+            (root / "scripts").mkdir()
+            (root / "scripts/sdk-input-lock.json").write_text(json.dumps({"text_extensions": manifest.SDK_TEXT_EXTENSIONS, "trees": trees}))
+            raw = manifest.tree_digest(headers)
+            with mock.patch.object(sdk_lock, "ROOT", root):
+                sdk_lock.verify_sdk(sdk)
+                for name, content in contents.items():
+                    (headers / name).write_bytes(content.replace(b"\r\n", b"\n"))
+                    sdk_lock.verify_sdk(sdk)
+                self.assertNotEqual(raw, manifest.tree_digest(headers))
+                canonical = b"".join(name.encode() + b"\0" + (headers / name).read_bytes() + b"\0" for name in sorted((*contents, "runtime.so")))
+                self.assertEqual(trees["public/steam"], manifest.digest_bytes(canonical))
+                for path in (runtime, headers / "runtime.so", headers / "a.h"):
+                    original = path.read_bytes()
+                    path.write_bytes(original.replace(b"\r\n", b"\n") if path.suffix != ".h" else b"changed\n")
+                    with self.assertRaises(AssertionError):
+                        sdk_lock.verify_sdk(sdk)
+                    path.write_bytes(original)
 
 
 SHELLS = [shell for shell in ("powershell", "pwsh") if shutil.which(shell)]

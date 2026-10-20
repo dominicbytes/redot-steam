@@ -1,8 +1,13 @@
 {
-  "schema": 1,
+  "schema": 2,
   "sdk_version": "1.65",
+  "text_normalization": "CRLF_TO_LF",
+  "text_extensions": [
+    ".h",
+    ".json"
+  ],
   "trees": {
-    "public/steam": "E45043F255B9D80C5962AD7E2B593D058A206F1B9FB26B387AE5A03C0C1ABAC7",
+    "public/steam": "EBFFA1A9D49D7F85EEBC448509FD3168BB55B2086337B6E16446263434F0208A",
     "redistributable_bin": "6564040429DE6BF011FA8E3467A150490D10F4D2A4E9C64E5F54B4E9514FB762"
   }
 }

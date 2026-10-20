@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 UPSTREAM_COMMIT = "8e0b976d0ae02a23c35daecf32c6b7bfeba0da08"
 FORBIDDEN = {"steam_api.h", "steam_api.dll", "steam_api64.dll", "steam_api.lib", "steam_api64.lib", "libsteam_api.so", "libsteam_api.dylib"}
 
+SDK_TEXT_EXTENSIONS = (".h", ".json")
+
 
 def digest_bytes(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest().upper()
@@ -29,7 +31,7 @@ def git(*args: str) -> str:
     return subprocess.check_output(["git", "-C", str(ROOT), *args], text=True).strip()
 
 
-def tree_digest(root: Path) -> str:
+def tree_digest(root: Path, text_extensions=()) -> str:
     digest = hashlib.sha256()
     files = sorted((item for item in root.rglob("*") if item.is_file()), key=lambda item: item.relative_to(root).as_posix())
     if not root.is_dir() or not files or not any(path.stat().st_size for path in files):
@@ -37,7 +39,10 @@ def tree_digest(root: Path) -> str:
     for path in files:
         digest.update(path.relative_to(root).as_posix().encode("utf-8"))
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        content = path.read_bytes()
+        if path.suffix.lower() in text_extensions:
+            content = content.replace(b"\r\n", b"\n")
+        digest.update(content)
         digest.update(b"\0")
     return digest.hexdigest().upper()
 
@@ -94,6 +99,10 @@ def main() -> int:
             "provenance": "USER_SUPPLIED_INPUT_NOT_BUILD_ATTESTATION",
             "public_headers_tree_sha256": tree_digest(sdk_headers),
             "redistributables_tree_sha256": tree_digest(sdk_redist),
+            "admission_text_normalization": "CRLF_TO_LF",
+            "admission_text_extensions": SDK_TEXT_EXTENSIONS,
+            "public_headers_admission_tree_sha256": tree_digest(sdk_headers, SDK_TEXT_EXTENSIONS),
+            "redistributables_admission_tree_sha256": tree_digest(sdk_redist, SDK_TEXT_EXTENSIONS),
         },
         "binaries": sorted(binaries, key=lambda item: item["path"]),
     }
