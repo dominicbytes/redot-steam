@@ -114,7 +114,10 @@ Error SteamPacketPeer::send(int p_channel, const uint8_t *p_data, int p_size, in
 	SteamAPI_ISteamNetworkingSockets_SendMessages(
 			SteamAPI_SteamNetworkingSockets_SteamAPI(), 1, messages, &result, true
 			);
-	ERR_FAIL_COND_V(result <= 0, ERR_CONNECTION_ERROR);
+	// A full send buffer is ordinary back-pressure, so report it without logging.
+	if (result <= 0) {
+		return ERR_CONNECTION_ERROR;
+	}
 
 	return OK;
 }
@@ -139,7 +142,10 @@ Error SteamPacketPeer::ping(uint32_t p_peer_id) {
 	SteamAPI_ISteamNetworkingSockets_SendMessages(
 			SteamAPI_SteamNetworkingSockets_SteamAPI(), 1, messages, &result, true
 			);
-	ERR_FAIL_COND_V(result <= 0, ERR_CONNECTION_ERROR);
+	// A full send buffer is ordinary back-pressure, so report it without logging.
+	if (result <= 0) {
+		return ERR_CONNECTION_ERROR;
+	}
 
 	return OK;
 }

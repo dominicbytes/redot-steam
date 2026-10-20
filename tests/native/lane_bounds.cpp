@@ -59,7 +59,7 @@ static std::map<int, int> actual_lanes;
 #define WARN_PRINT_ONCE(...) ((void)0)
 #define unlikely(x) (x)
 #define WARN_PRINT(...) do { warnings++; } while (false)
-#define ERR_FAIL_COND_V(condition, error) do { if (condition) { return error; } } while (false)
+#define ERR_FAIL_COND_V(condition, error) do { if (condition) { errors++; return error; } } while (false)
 #define ERR_FAIL_COND_V_MSG(condition, error, ...) do { if (condition) { errors++; return error; } } while (false)
 
 struct SteamNetworkingMessage_t {
@@ -120,6 +120,7 @@ static void transport_case(const std::string &name) {
 		settings->set("steam/multiplayer_peer/max_channels", 4);
 		SteamPacketPeer peer; peer.set_connection_handle(1); peer.state = SteamPacketPeer::STATE_CONNECTED;
 		const uint8_t data = 42;
+		errors = 0;
 		for (int64_t result : {-25LL, -8LL, -3LL, 0LL}) {
 			send_result = result;
 			assert(peer.send(0, &data, 1, 0) == ERR_CONNECTION_ERROR);
@@ -127,6 +128,7 @@ static void transport_case(const std::string &name) {
 			assert(peer.ping(2) == ERR_CONNECTION_ERROR);
 			assert(live_messages == 0);
 		}
+		assert(errors == 0);
 		send_result = 1;
 		assert(peer.send(0, &data, 1, 0) == OK && peer.ping(2) == OK && live_messages == 0);
 		int previous = allocations;
