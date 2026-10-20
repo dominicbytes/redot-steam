@@ -9,7 +9,7 @@ The supported Windows runtimes are `Redot 26.2.stable.official.4f5b14aba` and `R
 - Exact public API parity with the pinned GodotSteam 4.21 source is verified by the checked-in parity inventory.
 - Historical Alpha evidence records Windows x86-64 and Linux x86-64/arm64 debug/release builds and Redot 26.2 fixture checks. It does not qualify the current candidate.
 - Windows x86-64 debug/release binaries built against the 26.2 ABI also pass live App ID 480 init/callback/shutdown, missing-App-ID failure, native and mock fixture runs, and editor-plugin parsing on 26.3. Official 26.3 has headless editor shutdown defects reproducible without this addon; see [PORT_STATUS.md](PORT_STATUS.md). Linux runtime support on 26.3 has not been verified.
-- Current qualification remains incomplete, including the open first-discovery/import defect. Beta, RC and stable-prep are BLOCKED until their suites and evidence checks are implemented; Beta also requires private Steam app access. See [PORT_STATUS.md](PORT_STATUS.md).
+- The first editor session after installing the addon needs a restart before tool scripts can use the Steam classes by name; this avoids a Redot editor documentation crash at shutdown. Current qualification remains incomplete. Beta, RC and stable-prep are BLOCKED until their suites and evidence checks are implemented; Beta also requires private Steam app access. See [PORT_STATUS.md](PORT_STATUS.md).
 
 ## Required user-supplied dependency
 
