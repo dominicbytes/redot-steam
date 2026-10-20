@@ -16,9 +16,10 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> int:
+    # Redot 26.3 uses this same ABI; its raw Struct bindings are unsupported by the pin.
     api = json.loads((ROOT / "redot-api/26.2/extension_api.json").read_text(encoding="utf-8"))
-    require(api["redot_header"]["version_major"] == 26, "Redot major version mismatch")
-    require(api["redot_header"]["version_minor"] == 2, "Redot minor version mismatch")
+    require(api["redot_header"]["version_major"] == 26, "Redot binding ABI major version mismatch")
+    require(api["redot_header"]["version_minor"] == 2, "Pinned 26.2 binding ABI mismatch (also used on 26.3)")
     require(api["header"]["version_major"] == 4 and api["header"]["version_minor"] == 5, "Godot API lineage mismatch")
 
     inventory = json.loads((ROOT / "docs/gamedev/parity/upstream-api.json").read_text(encoding="utf-8"))

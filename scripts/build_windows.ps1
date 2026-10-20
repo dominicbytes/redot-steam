@@ -3,6 +3,8 @@ param(
     [ValidateSet("template_debug", "template_release")]
     [string]$Target = "template_debug",
     [string]$SdkPath = "godotsteam/sdk",
+    # Both supported engines use the pinned 26.2 binding ABI.
+    [string]$RedotApiDir = "redot-api/26.2",
     [string]$TargetPath = "bin",
     [switch]$IncludeSteamRuntime,
     [int]$Jobs = 4
@@ -23,7 +25,7 @@ try {
     $sconsArgs = @(
         "-m", "SCons",
         "platform=windows", "arch=x86_64", "target=$Target",
-        "redot_api_dir=redot-api/26.2", "steam_sdk_path=$SdkPath",
+        "redot_api_dir=$RedotApiDir", "steam_sdk_path=$SdkPath",
         "target_path=$TargetPath", "target_name=godotsteam",
         "include_steam_runtime=$runtime", "-j$Jobs"
     )

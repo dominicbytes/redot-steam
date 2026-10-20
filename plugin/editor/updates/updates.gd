@@ -19,7 +19,7 @@ func _ready() -> void:
 	cancel_button.hide()
 	downloading.hide()
 	install_button.hide()
-	installed_label.text = "GodotSteam API %s for Redot 26.2" % Steam.get_godotsteam_version()
+	installed_label.text = "GodotSteam API %s for Redot 26.2 / 26.3" % Steam.get_godotsteam_version()
 	update_button.text = "Releases"
 	update_button.disabled = false
 	update_button.pressed.connect(_open_release_page)
