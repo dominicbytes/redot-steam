@@ -79,7 +79,8 @@ ARGUMENTS.update(plugin_arguments)
 # The returned environment is also used by the godot-cpp library builders.
 for source_root, mapped_root in ((os.path.abspath("."), "."), (os.path.abspath(env["steam_sdk_path"]), "steamworks-sdk")):
 	if env.get("is_msvc", False):
-		env.Append(CCFLAGS=["/d1trimfile:" + source_root + os.sep])
+		# A trailing backslash would escape the closing quote when SCons quotes paths with spaces.
+		env.Append(CCFLAGS=["/d1trimfile:" + source_root.replace("\\", "/") + "/"])
 	else:
 		env.Append(CCFLAGS=["-ffile-prefix-map=" + source_root.replace("\\", "/") + "=" + mapped_root])
 if env.get("is_msvc", False):
