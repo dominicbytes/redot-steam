@@ -82,6 +82,9 @@ for source_root, mapped_root in ((os.path.abspath("."), "."), (os.path.abspath(e
 		env.Append(CCFLAGS=["/d1trimfile:" + source_root + os.sep])
 	else:
 		env.Append(CCFLAGS=["-ffile-prefix-map=" + source_root.replace("\\", "/") + "=" + mapped_root])
+if env.get("is_msvc", False):
+	# The linker otherwise records the absolute PDB location in the DLL.
+	env.Append(LINKFLAGS=["/PDBALTPATH:%_PDB%"])
 
 if os.name == "nt" and requested_platform == "linux" and env["linux_cross_zig"]:
 	# Zig's target triple already selects the architecture; Godot's GCC-specific
