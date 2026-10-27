@@ -129,6 +129,7 @@ void SteamMultiplayerPeer::_purge_connection_packets(HSteamNetConnection p_conne
 		SteamNetworkingMessage_t *message = incoming_packets.front()->get();
 		incoming_packets.pop_front();
 		if (message->m_conn == p_connection) {
+			incoming_bytes -= message->GetSize();
 			// Same rule as _close(): never release into a Steam that has shut down.
 			if (SteamAPI_SteamNetworkingSockets_SteamAPI() != nullptr) {
 				SteamAPI_SteamNetworkingMessage_t_Release(message);
@@ -204,46 +205,65 @@ void SteamMultiplayerPeer::_poll() {
 	}
 	int receive_count = remaining < MAX_MESSAGE_COUNT ? remaining : MAX_MESSAGE_COUNT;
 	SteamNetworkingMessage_t *messages[MAX_MESSAGE_COUNT];
-	int number_messages = SteamAPI_ISteamNetworkingSockets_ReceiveMessagesOnPollGroup(
-			SteamAPI_SteamNetworkingSockets_SteamAPI(),
-			poll_group, messages, receive_count
-			);
-	if (number_messages == 0) {
-		return;
-	}
-
-	for (int i = 0; i < number_messages; i++) {
-		SteamNetworkingMessage_t *message = messages[i];
-		if (SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr) {
-			// A signal handler shut Steam down; the rest of the batch died with it.
-			return;
+	const int64_t max_bytes = SteamProjectSettings::get_max_queued_bytes();
+	const int64_t max_message = SteamProjectSettings::get_max_message_size();
+	int received_total = 0;
+	while (received_total < receive_count) {
+		int64_t byte_room = max_bytes - incoming_bytes;
+		if (byte_room <= 0) {
+			break;
 		}
-
-		if (!steam_connections.has(message->m_conn)) {
-			SteamAPI_SteamNetworkingMessage_t_Release(message);
-			continue;
+		// Steam closes any connection that sends more than max_message bytes, so a
+		// batch this size keeps the queue under budget + one message.
+		int batch = receive_count - received_total;
+		int64_t by_bytes = byte_room / max_message + 1;
+		if (by_bytes < batch) {
+			batch = (int)by_bytes;
 		}
+		int number_messages = SteamAPI_ISteamNetworkingSockets_ReceiveMessagesOnPollGroup(
+				SteamAPI_SteamNetworkingSockets_SteamAPI(), poll_group, messages, batch);
+		if (number_messages <= 0) {
+			break;
+		}
+		received_total += number_messages;
+		bool drained = number_messages < batch;
+		for (int i = 0; i < number_messages; i++) {
+			SteamNetworkingMessage_t *message = messages[i];
+			if (SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr) {
+				// A signal handler shut Steam down; the rest of the batch died with it.
+				return;
+			}
 
-		Ref<SteamPacketPeer> peer = steam_connections[message->m_conn];
-		uint32_t peer_id = peer->get_peer_id();
-		if (peer_id != 0) {
-			// User data may already contain an ID before admission, or after rejection.
-			if (peers.has(peer_id) && peers[peer_id]->get_connection_handle() == message->m_conn) {
-				incoming_packets.push_back(message);
-			} else {
+			if (!steam_connections.has(message->m_conn)) {
 				SteamAPI_SteamNetworkingMessage_t_Release(message);
+				continue;
 			}
-		} else {
-			HSteamNetConnection connection = message->m_conn;
-			Error handshake = peer->process_ping(message);
-			SteamAPI_SteamNetworkingMessage_t_Release(message);
-			if (handshake == OK) {
-				_upgrade_peer(connection);
+
+			Ref<SteamPacketPeer> peer = steam_connections[message->m_conn];
+			uint32_t peer_id = peer->get_peer_id();
+			if (peer_id != 0) {
+				// User data may already contain an ID before admission, or after rejection.
+				if (peers.has(peer_id) && peers[peer_id]->get_connection_handle() == message->m_conn) {
+					incoming_packets.push_back(message);
+					incoming_bytes += message->GetSize();
+				} else {
+					SteamAPI_SteamNetworkingMessage_t_Release(message);
+				}
 			} else {
-				// A first message that is not a peer-ID handshake ends the connection.
-				peer->disconnect_peer(true);
-				steam_connections.erase(connection);
+				HSteamNetConnection connection = message->m_conn;
+				Error handshake = peer->process_ping(message);
+				SteamAPI_SteamNetworkingMessage_t_Release(message);
+				if (handshake == OK) {
+					_upgrade_peer(connection);
+				} else {
+					// A first message that is not a peer-ID handshake ends the connection.
+					peer->disconnect_peer(true);
+					steam_connections.erase(connection);
+				}
 			}
+		}
+		if (drained || poll_group == k_HSteamNetPollGroup_Invalid) {
+			break;
 		}
 	}
 }
@@ -506,6 +526,7 @@ void SteamMultiplayerPeer::_close() {
 	steam_connections.clear();
 	peers.clear();
 	pending_deadlines.clear();
+	incoming_bytes = 0;
 
 	if (current_packet != nullptr) {
 		if (steam_alive) {
@@ -573,6 +594,7 @@ Error SteamMultiplayerPeer::_get_packet(const uint8_t **r_buffer, int *r_buffer_
 
 	current_packet = incoming_packets.front()->get();
 	incoming_packets.pop_front();
+	incoming_bytes -= current_packet->GetSize();
 
 	*r_buffer = (uint8_t *)current_packet->GetData();
 	*r_buffer_size = (int)current_packet->GetSize();
@@ -621,15 +643,15 @@ Error SteamMultiplayerPeer::_put_packet(const uint8_t *p_buffer, int p_buffer_si
 }
 
 int SteamMultiplayerPeer::_get_max_packet_size() const {
-	// Steam networking sockets max message size
-	return k_cbMaxSteamNetworkingSocketsMessageSizeSend; // 512 KB
+	return SteamProjectSettings::get_max_message_size();
 }
 
 Error SteamMultiplayerPeer::_create_listen_socket(int p_virtual_port) {
 	SteamNetworkingConfigValue_t opt[2];
 	opt[0].SetInt32(k_ESteamNetworkingConfig_SymmetricConnect, 1);
+	opt[1].SetInt32(k_ESteamNetworkingConfig_RecvMaxMessageSize, SteamProjectSettings::get_max_message_size());
 	listen_socket = SteamAPI_ISteamNetworkingSockets_CreateListenSocketP2P(
-			SteamAPI_SteamNetworkingSockets_SteamAPI(), p_virtual_port, 1, opt
+			SteamAPI_SteamNetworkingSockets_SteamAPI(), p_virtual_port, 2, opt
 			);
 
 	ERR_FAIL_COND_V(listen_socket == k_HSteamListenSocket_Invalid, ERR_CANT_CREATE);
@@ -707,9 +729,12 @@ Error SteamMultiplayerPeer::add_peer(uint64_t p_steam_id, int p_virtual_port) {
 			k_ESteamNetworkingConfig_SymmetricConnect, 1
 			);
 
+	SteamAPI_SteamNetworkingConfigValue_t_SetInt32(&opt[1],
+			k_ESteamNetworkingConfig_RecvMaxMessageSize, SteamProjectSettings::get_max_message_size());
+
 	HSteamNetConnection connection = SteamAPI_ISteamNetworkingSockets_ConnectP2P(
 			SteamAPI_SteamNetworkingSockets_SteamAPI(),
-			remote_identity, p_virtual_port, 1, opt
+			remote_identity, p_virtual_port, 2, opt
 			);
 
 	ERR_FAIL_COND_V(connection == k_HSteamNetConnection_Invalid, ERR_CANT_CREATE);

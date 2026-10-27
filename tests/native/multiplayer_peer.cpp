@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <map>
 #include <functional>
 #include <cstdlib>
 #include <memory>
@@ -75,8 +76,9 @@ struct SteamNetworkingMessage_t {
 	uint32_t claimed_id;
 	int releases = 0;
 	bool malformed = false;
+	int size = 4;
 	void *GetData() { return &claimed_id; }
-	int GetSize() const { return sizeof(claimed_id); }
+	int GetSize() const { return size; }
 };
 struct MessageList {
 	std::vector<SteamNetworkingMessage_t *> entries;
@@ -93,6 +95,9 @@ static std::vector<SteamNetworkingMessage_t *> receive_batch;
 static int requested_messages = 0;
 static int receive_calls = 0;
 static int64_t configured_queue_limit = 256;
+static int64_t configured_max_message = 1024, configured_queued_bytes = 1073741824;
+constexpr int k_ESteamNetworkingConfig_RecvMaxMessageSize = 49;
+static std::map<int, int> config_values;
 static int64_t configured_pending_limit = 32, configured_handshake_timeout = 15000;
 static uint64_t now_msec = 0;
 template <typename T> using LocalVector = std::vector<T>;
@@ -103,11 +108,15 @@ struct ProjectSettings {
 		std::string key = name;
 		if (key == "steam/multiplayer_peer/max_pending_connections") { return configured_pending_limit; }
 		if (key == "steam/multiplayer_peer/handshake_timeout_ms") { return configured_handshake_timeout; }
+		if (key == "steam/multiplayer_peer/max_message_size") { return configured_max_message; }
+		if (key == "steam/multiplayer_peer/max_queued_bytes") { return configured_queued_bytes; }
 		return configured_queue_limit;
 	}
 };
 struct SteamProjectSettings {
 	static int get_max_queued_packets();
+	static int get_max_message_size();
+	static int64_t get_max_queued_bytes();
 	static int get_max_pending_connections();
 	static int get_handshake_timeout_ms();
 };
@@ -127,7 +136,7 @@ static bool fail_connect = false;
 static bool fail_listen = false, fail_poll = false;
 static void SteamAPI_ISteamNetworkingSockets_CloseConnection(void *, HSteamNetConnection conn, int, const char *, bool) { closes[conn]++; }
 static void SteamAPI_SteamNetworkingIdentity_SetSteamID64(uint64_t *id, uint64_t value) { *id = value; }
-static void SteamAPI_SteamNetworkingConfigValue_t_SetInt32(SteamNetworkingConfigValue_t *, int, int) {}
+static void SteamAPI_SteamNetworkingConfigValue_t_SetInt32(SteamNetworkingConfigValue_t *, int key, int value) { config_values[key] = value; }
 static HSteamNetConnection SteamAPI_ISteamNetworkingSockets_ConnectP2P(void *, uint64_t, int port, int, SteamNetworkingConfigValue_t *) {
 	last_virtual_port = port;
 	return fail_connect ? 0 : next_connection++;
@@ -179,6 +188,7 @@ struct SteamMultiplayerPeer {
 	int _count_pending_connections();
 	MessageList incoming_packets;
 	SteamNetworkingMessage_t *current_packet = nullptr;
+	int64_t incoming_bytes = 0;
 	~SteamMultiplayerPeer();
 	void _close();
 	Error _get_packet(const uint8_t **, int *);
@@ -492,11 +502,47 @@ static void lifecycle_case(const std::string &name) {
 		stopping.on_connect = nullptr;
 		receive_batch.clear();
 		now_msec = 0;
+	} else if (name == "C12") {
+		// Queued bytes stay within budget + one message; connections carry the receive cap.
+		configured_max_message = 1024; configured_queued_bytes = 65536;
+		SteamMultiplayerPeer network; network._close(); assert(network.create_client(100, 9) == OK);
+		assert(config_values[k_ESteamNetworkingConfig_RecvMaxMessageSize] == 1024);
+		SteamMultiplayerPeer queue; queue.connection_status = SteamMultiplayerPeer::CONNECTION_CONNECTED;
+		auto sender = pending(queue, 89); sender->set_peer_id(3); queue._upgrade_peer(89);
+		std::vector<SteamNetworkingMessage_t> burst(100, {89, 9});
+		receive_batch.clear();
+		for (auto &message : burst) { message.size = 1024; receive_batch.push_back(&message); }
+		// 64 KiB budget / 1 KiB messages: 65 fit before the budget is crossed, then stop.
+		int calls = receive_calls;
+		queue._poll();
+		assert(receive_calls == calls + 1 && requested_messages == 65);
+		assert(queue.incoming_packets.size() == 65 && queue.incoming_bytes == 66560);
+		calls = receive_calls; queue._poll();
+		assert(receive_calls == calls);
+		const uint8_t *buffer = nullptr; int size = 0;
+		assert(queue._get_packet(&buffer, &size) == OK && queue._get_packet(&buffer, &size) == OK);
+		assert(queue.incoming_bytes == 64512);
+		queue._poll();
+		assert(requested_messages == 2 && queue.incoming_bytes == 66560);
+		queue._close();
+		assert(queue.incoming_bytes == 0);
+		receive_batch.clear();
+		// Small messages still drain a full 255-message batch in one poll (several receive calls).
+		configured_queued_bytes = 65536;
+		SteamMultiplayerPeer fast; fast.connection_status = SteamMultiplayerPeer::CONNECTION_CONNECTED;
+		auto chatty = pending(fast, 90); chatty->set_peer_id(3); fast._upgrade_peer(90);
+		std::vector<SteamNetworkingMessage_t> small(300, {90, 9});
+		for (auto &message : small) { receive_batch.push_back(&message); }
+		fast._poll();
+		assert(fast.incoming_packets.size() == 255);
+		fast._close();
+		receive_batch.clear();
+		configured_max_message = 1024; configured_queued_bytes = 1073741824;
 	}
 }
 int main(int argc, char **argv) {
 	std::string selected = argc > 1 ? argv[1] : "all";
-	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11"}) {
+	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12"}) {
 		if (selected == "all" || selected == name) { lifecycle_case(name); }
 	}
 	if (selected != "all") { std::cout << selected << "=PASS\n"; return 0; }
