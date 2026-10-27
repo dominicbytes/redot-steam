@@ -12616,7 +12616,7 @@
       "upstream": "d6ab222aa32dae6f5131be8b6a5b7c90e5dac417657dafa5af1d9715042e6213"
     },
     "godotsteam/doc_classes/Steam.xml": {
-      "downstream": "7e8e123e1fae613eb33cd1f7fa412df7fd17b69f7363019898d0c26480bbf821",
+      "downstream": "943a809244b0bb261ebd12333e56b13a97677984c8613c4f24298233f13f286d",
       "upstream": "eee730391d7323dfd7cddac7228b5201234aeba66d2653d9864d79bee85a7986"
     },
     "godotsteam/doc_classes/SteamMultiplayerPeer.xml": {
@@ -12628,7 +12628,7 @@
       "upstream": "183e11fd02c471b0498423b58934f5b9793ce125f5ef2b93c54beb8e13a40121"
     },
     "godotsteam/godotsteam.cpp": {
-      "downstream": "a620b05ca53d5673aa4d0e1ad05c108ef17fa7589a47460deddda3dac5ab8db8",
+      "downstream": "dea5a50b9ab699ed54afb0fe1773946b004481c0fa4f1888463e389706610de2",
       "upstream": "51be1d0f6e58ec36bb0e52646aec41ae841d8e6f8d38a16abb59257d73ea9963"
     },
     "godotsteam/godotsteam.h": {

@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     source = (ROOT / "godotsteam/godotsteam.cpp").read_text(encoding="utf-8")
     signatures = (
+        "Dictionary Steam::getAuthSessionTicket(",
         "PackedInt64Array Steam::sendMessages(",
         "Dictionary Steam::getConfigValue(",
         "int Steam::estimatePingTimeBetweenTwoLocations(",
