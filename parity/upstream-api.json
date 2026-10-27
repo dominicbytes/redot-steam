@@ -12620,11 +12620,11 @@
       "upstream": "eee730391d7323dfd7cddac7228b5201234aeba66d2653d9864d79bee85a7986"
     },
     "godotsteam/doc_classes/SteamMultiplayerPeer.xml": {
-      "downstream": "bc53294fa0139d49c601fdf76b5d8c0b910b6f038e46d7ded8d9930464c49e15",
+      "downstream": "abb1f4a07699abd4c72e546eab78c514bfedbbbef40e86069c5eeb3effa95fc8",
       "upstream": "94954e67c848cec382762ba0b710f6dbab0746a858ba6a9c2448e690e4f64dac"
     },
     "godotsteam/doc_classes/SteamPacketPeer.xml": {
-      "downstream": "183e11fd02c471b0498423b58934f5b9793ce125f5ef2b93c54beb8e13a40121",
+      "downstream": "588c0ce453f0d6ae7423694ade67576c666f9fecfb28453c76fbbe586061020e",
       "upstream": "183e11fd02c471b0498423b58934f5b9793ce125f5ef2b93c54beb8e13a40121"
     },
     "godotsteam/godotsteam.cpp": {
