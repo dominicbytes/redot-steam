@@ -547,6 +547,7 @@ void Steam::steamShutdown() {
 		were_callbacks_embedded = false;
 	}
 	SteamAPI_Shutdown();
+	is_init_success = false;
 }
 
 

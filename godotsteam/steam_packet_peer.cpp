@@ -40,12 +40,17 @@ SteamPacketPeer::SteamPacketPeer() {
 }
 
 SteamPacketPeer::~SteamPacketPeer() {
+	const bool steam_alive = SteamAPI_SteamNetworkingSockets_SteamAPI() != nullptr;
 	if (last_packet) {
-		SteamAPI_SteamNetworkingMessage_t_Release(last_packet);
+		if (steam_alive) {
+			SteamAPI_SteamNetworkingMessage_t_Release(last_packet);
+		}
 		last_packet = nullptr;
 	}
 	for (List<SteamNetworkingMessage_t *>::Element *E = packet_queue.front(); E; E = E->next()) {
-		SteamAPI_SteamNetworkingMessage_t_Release(E->get());
+		if (steam_alive) {
+			SteamAPI_SteamNetworkingMessage_t_Release(E->get());
+		}
 	}
 	packet_queue.clear();
 }
@@ -92,6 +97,8 @@ SteamPacketPeer::PeerState SteamPacketPeer::get_state() const { return state; }
 
 Error SteamPacketPeer::send(int p_channel, const uint8_t *p_data, int p_size, int p_flags) {
 	ERR_FAIL_COND_V(state != STATE_CONNECTED, ERR_UNAVAILABLE);
+	ERR_FAIL_COND_V(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr ||
+			SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, ERR_UNAVAILABLE);
 
 	ERR_FAIL_COND_V(p_data == nullptr || p_size <= 0 || p_size > k_cbMaxSteamNetworkingSocketsMessageSizeSend, ERR_INVALID_PARAMETER);
 
@@ -124,6 +131,8 @@ Error SteamPacketPeer::send(int p_channel, const uint8_t *p_data, int p_size, in
 
 Error SteamPacketPeer::ping(uint32_t p_peer_id) {
 	ERR_FAIL_COND_V(state != STATE_CONNECTED, ERR_UNAVAILABLE);
+	ERR_FAIL_COND_V(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr ||
+			SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, ERR_UNAVAILABLE);
 
 	PeerIDPacket data = PeerIDPacket();
 	data.peer_id = p_peer_id;
@@ -204,10 +213,12 @@ void SteamPacketPeer::disconnect_peer(bool p_force) {
 		return;
 	}
 
-	SteamAPI_ISteamNetworkingSockets_CloseConnection(
-			SteamAPI_SteamNetworkingSockets_SteamAPI(), connection_handle, 0,
-			"Disconnect requested by application.", !p_force
-			);
+	if (SteamAPI_SteamNetworkingSockets_SteamAPI() != nullptr) {
+		SteamAPI_ISteamNetworkingSockets_CloseConnection(
+				SteamAPI_SteamNetworkingSockets_SteamAPI(), connection_handle, 0,
+				"Disconnect requested by application.", !p_force
+				);
+	}
 
 	if (p_force) {
 		state = STATE_NONE;

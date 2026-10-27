@@ -68,8 +68,9 @@ struct SteamNetworkingMessage_t {
 	uint16 m_idxLane = 0;
 	uint8_t *m_pData = nullptr;
 };
-static void *SteamAPI_SteamNetworkingUtils_SteamAPI() { return nullptr; }
-static void *SteamAPI_SteamNetworkingSockets_SteamAPI() { return nullptr; }
+static bool sockets_available = true;
+static void *SteamAPI_SteamNetworkingUtils_SteamAPI() { return sockets_available ? (void *)1 : nullptr; }
+static void *SteamAPI_SteamNetworkingSockets_SteamAPI() { return sockets_available ? (void *)1 : nullptr; }
 static SteamNetworkingMessage_t *SteamAPI_ISteamNetworkingUtils_AllocateMessage(void *, int size) {
 	assert(size > 0 && size <= k_cbMaxSteamNetworkingSocketsMessageSizeSend);
 	allocations++;
@@ -137,6 +138,11 @@ static void transport_case(const std::string &name) {
 		fail_allocation = true;
 		assert(peer.send(0, &data, 1, 0) == ERR_CANT_CREATE && peer.ping(2) == ERR_CANT_CREATE);
 		fail_allocation = false;
+		sockets_available = false;
+		int before_alloc = allocations, before_sends = sends;
+		assert(peer.send(0, &data, 1, 0) == ERR_UNAVAILABLE && peer.ping(2) == ERR_UNAVAILABLE);
+		assert(allocations == before_alloc && sends == before_sends);
+		sockets_available = true;
 	} else if (name == "C7") {
 		for (int64_t count : {-10LL, 0LL, 1LL, 4LL, 255LL, 256LL, 65537LL, 4294967296LL}) {
 			settings->set("steam/multiplayer_peer/max_channels", count);
