@@ -128,6 +128,28 @@ void SteamProjectSettings::register_settings() {
 	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/handshake_timeout_ms", 15000);
 	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/handshake_timeout_ms", true);
 
+	if (!ProjectSettings::get_singleton()->has_setting("steam/multiplayer_peer/max_message_size")) {
+		ProjectSettings::get_singleton()->set("steam/multiplayer_peer/max_message_size", 524288);
+	}
+	property_info["name"] = "steam/multiplayer_peer/max_message_size";
+	property_info["type"] = Variant::INT;
+	property_info["hint"] = PROPERTY_HINT_RANGE;
+	property_info["hint_string"] = "1024,524288,1";
+	ProjectSettings::get_singleton()->add_property_info(property_info);
+	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/max_message_size", 524288);
+	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/max_message_size", true);
+
+	if (!ProjectSettings::get_singleton()->has_setting("steam/multiplayer_peer/max_queued_bytes")) {
+		ProjectSettings::get_singleton()->set("steam/multiplayer_peer/max_queued_bytes", 8388608);
+	}
+	property_info["name"] = "steam/multiplayer_peer/max_queued_bytes";
+	property_info["type"] = Variant::INT;
+	property_info["hint"] = PROPERTY_HINT_RANGE;
+	property_info["hint_string"] = "65536,1073741824,1";
+	ProjectSettings::get_singleton()->add_property_info(property_info);
+	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/max_queued_bytes", 8388608);
+	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/max_queued_bytes", true);
+
 	// Port in any pre-GodotSteam v4.20 settings
 	if (ProjectSettings::get_singleton()->has_setting("steam/initialization/app_id")) {
 		WARN_PRINT_ONCE("Found older app ID project setting, converting it");
@@ -221,6 +243,25 @@ int SteamProjectSettings::get_handshake_timeout_ms() {
 		return 120000;
 	}
 	return timeout >= 1000 ? (int)timeout : 1000;
+}
+
+
+int SteamProjectSettings::get_max_message_size() {
+	int64_t size = ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/max_message_size");
+	// 524288 = k_cbMaxSteamNetworkingSocketsMessageSizeSend; this file has no Steam header.
+	if (size > 524288) {
+		return 524288;
+	}
+	return size >= 1024 ? (int)size : 1024;
+}
+
+
+int64_t SteamProjectSettings::get_max_queued_bytes() {
+	int64_t limit = ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/max_queued_bytes");
+	if (limit > 1073741824) {
+		return 1073741824;
+	}
+	return limit >= 65536 ? limit : 65536;
 }
 
 

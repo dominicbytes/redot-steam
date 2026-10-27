@@ -66,6 +66,7 @@ private:
 	int _count_pending_connections();
 	List<SteamNetworkingMessage_t *> incoming_packets;
 	SteamNetworkingMessage_t *current_packet = nullptr;
+	int64_t incoming_bytes = 0;
 
 	int target_peer = 0;
 	TransferMode transfer_mode = TRANSFER_MODE_RELIABLE;

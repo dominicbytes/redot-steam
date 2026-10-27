@@ -23,7 +23,7 @@ def main():
     ))
     settings = source_text("godotsteam/godotsteam_project_settings.cpp", args.source_ref)
     bodies += "\n" + "\n".join(method(settings, signature) for signature in (
-        "void SteamProjectSettings::register_settings()", "int SteamProjectSettings::get_max_channels()",
+        "void SteamProjectSettings::register_settings()", "int SteamProjectSettings::get_max_channels()", "int SteamProjectSettings::get_max_message_size()",
     ))
     harness = (ROOT / "tests/native/lane_bounds.cpp").read_text(encoding="utf-8")
     compiler = os.environ.get("CXX") or shutil.which("cl") or shutil.which("c++")
