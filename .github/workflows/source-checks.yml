@@ -27,3 +27,4 @@ jobs:
       - run: python tests/native/test_core_buffers.py
       - run: python tests/test_signal_contracts.py
       - run: python tests/native/test_ugc_user.py
+      - run: python tests/native/test_lifecycle.py

@@ -99,9 +99,13 @@ struct ProjectSettings {
 struct SteamProjectSettings {
 	static int get_max_queued_packets();
 };
-static void SteamAPI_ISteamNetworkingSockets_CloseListenSocket(void *, int) {}
-static void SteamAPI_ISteamNetworkingSockets_DestroyPollGroup(void *, int) {}
-static void *SteamAPI_SteamNetworkingSockets_SteamAPI() { return nullptr; }
+static bool steam_up = true;
+static int sockets_token = 0;
+static int listen_closes = 0;
+static int poll_destroys = 0;
+static void SteamAPI_ISteamNetworkingSockets_CloseListenSocket(void *, int) { listen_closes++; }
+static void SteamAPI_ISteamNetworkingSockets_DestroyPollGroup(void *, int) { poll_destroys++; }
+static void *SteamAPI_SteamNetworkingSockets_SteamAPI() { return steam_up ? &sockets_token : nullptr; }
 static uint64_t SteamAPI_SteamNetworkingIdentity_GetSteamID64(uint64_t *id) { return *id; }
 static HashMap<HSteamNetConnection, int> closes;
 static HashMap<HSteamNetConnection, int> groups;
@@ -162,6 +166,7 @@ struct SteamMultiplayerPeer {
 	~SteamMultiplayerPeer();
 	void _close();
 	Error _get_packet(const uint8_t **, int *);
+	int _get_available_packet_count() const;
 	int poll_group = 1;
 	int debug_level = DEBUG_LEVEL_NONE;
 	int listen_socket = k_HSteamListenSocket_Invalid;
@@ -314,11 +319,42 @@ static void lifecycle_case(const std::string &name) {
 		network.refusing = false; auto existing = pending(network, 77); existing->set_peer_id(3); network.peers[3] = existing;
 		event.m_hConn = 78; event.m_info.m_nUserData = 3; network.network_connection_status_changed(&event);
 		assert(closes[78] == 1 && !network.steam_connections.has(78) && network.peers[3] == existing);
+	} else if (name == "C7") {
+		// Steam shut down first: teardown drops references without touching the dead API.
+		SteamMultiplayerPeer network; network.connection_status = SteamMultiplayerPeer::CONNECTION_CONNECTED;
+		network.listen_socket = 12; network.poll_group = 12;
+		auto peer = pending(network, 79); peer->set_peer_id(3); network.peers[3] = peer;
+		SteamNetworkingMessage_t queued{79, 9};
+		network.incoming_packets.push_back(&queued);
+		int listens = listen_closes, polls = poll_destroys, calls = receive_calls;
+		steam_up = false;
+		network._poll();
+		assert(receive_calls == calls);
+		network._close();
+		steam_up = true;
+		assert(queued.releases == 0 && closes[79] == 0 && !peer->closed);
+		assert(listen_closes == listens && poll_destroys == polls);
+		assert(network.listen_socket == k_HSteamListenSocket_Invalid && network.poll_group == k_HSteamNetPollGroup_Invalid);
+		assert(network.incoming_packets.is_empty() && network.peers.entries.empty() && network.steam_connections.entries.empty());
+		// Packets queued or borrowed before shutdown are never handed out or released afterwards.
+		SteamMultiplayerPeer reader;
+		SteamNetworkingMessage_t borrowed{91, 1}, waiting{91, 2};
+		reader.incoming_packets.push_back(&borrowed);
+		reader.incoming_packets.push_back(&waiting);
+		const uint8_t *buffer = nullptr;
+		int size = 0;
+		assert(reader._get_available_packet_count() == 2 && reader._get_packet(&buffer, &size) == OK);
+		steam_up = false;
+		assert(reader._get_available_packet_count() == 0);
+		assert(reader._get_packet(&buffer, &size) == ERR_UNAVAILABLE && reader.current_packet == nullptr);
+		reader._close();
+		steam_up = true;
+		assert(borrowed.releases == 0 && waiting.releases == 0);
 	}
 }
 int main(int argc, char **argv) {
 	std::string selected = argc > 1 ? argv[1] : "all";
-	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6"}) {
+	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6", "C7"}) {
 		if (selected == "all" || selected == name) { lifecycle_case(name); }
 	}
 	if (selected != "all") { std::cout << selected << "=PASS\n"; return 0; }

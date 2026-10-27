@@ -55,6 +55,9 @@ void SteamMultiplayerPeer::_set_target_peer(int p_peer_id) {
 
 int SteamMultiplayerPeer::_get_packet_peer() const {
 	ERR_FAIL_COND_V(incoming_packets.is_empty(), 1);
+	if (SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr) {
+		return 0;
+	}
 
 	return SteamAPI_ISteamNetworkingSockets_GetConnectionUserData(
 			SteamAPI_SteamNetworkingSockets_SteamAPI(),
@@ -118,6 +121,9 @@ bool SteamMultiplayerPeer::_is_server_relay_supported() const {
 }
 
 void SteamMultiplayerPeer::_poll() {
+	if (SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr || poll_group == k_HSteamNetPollGroup_Invalid) {
+		return;
+	}
 	int remaining = SteamProjectSettings::get_max_queued_packets() - incoming_packets.size();
 	if (remaining <= 0) {
 		return;
@@ -396,42 +402,47 @@ void SteamMultiplayerPeer::_close() {
 	host_virtual_port = 0;
 	connection_retries = 0;
 
-	// This worked find in 4.17 with 4.4 godot-cpp branch but now will no longer compile
-//	if (Engine::get_singleton()->get_singleton_object("Steam") == nullptr) {
-//		return;
-//	}
+	// Steam may already be shut down (steamShutdown, or Steam freed first on exit).
+	// Its handles and messages died with it, so only drop our references.
+	const bool steam_alive = SteamAPI_SteamNetworkingSockets_SteamAPI() != nullptr;
 
 	for (KeyValue<HSteamNetConnection, Ref<SteamPacketPeer>> &E :
 			steam_connections) {
-		E.value->disconnect_peer(true);
+		if (steam_alive) {
+			E.value->disconnect_peer(true);
+		}
 	}
 	steam_connections.clear();
 	peers.clear();
 
-	// Clear any remaining packets
 	if (current_packet != nullptr) {
-		SteamAPI_SteamNetworkingMessage_t_Release(current_packet);
+		if (steam_alive) {
+			SteamAPI_SteamNetworkingMessage_t_Release(current_packet);
+		}
 		current_packet = nullptr;
 	}
 
 	while (!incoming_packets.is_empty()) {
 		SteamNetworkingMessage_t *packet = incoming_packets.front()->get();
 		incoming_packets.pop_front();
-		SteamAPI_SteamNetworkingMessage_t_Release(packet);
+		if (steam_alive) {
+			SteamAPI_SteamNetworkingMessage_t_Release(packet);
+		}
 	}
 
-	incoming_packets.clear();
-
-	// Close any open sockets
 	if (listen_socket != k_HSteamListenSocket_Invalid) {
-		SteamAPI_ISteamNetworkingSockets_CloseListenSocket(
-				SteamAPI_SteamNetworkingSockets_SteamAPI(), listen_socket);
+		if (steam_alive) {
+			SteamAPI_ISteamNetworkingSockets_CloseListenSocket(
+					SteamAPI_SteamNetworkingSockets_SteamAPI(), listen_socket);
+		}
 		listen_socket = k_HSteamListenSocket_Invalid;
 	}
 
 	if (poll_group != k_HSteamNetPollGroup_Invalid) {
-		SteamAPI_ISteamNetworkingSockets_DestroyPollGroup(
-				SteamAPI_SteamNetworkingSockets_SteamAPI(), poll_group);
+		if (steam_alive) {
+			SteamAPI_ISteamNetworkingSockets_DestroyPollGroup(
+					SteamAPI_SteamNetworkingSockets_SteamAPI(), poll_group);
+		}
 		poll_group = k_HSteamNetPollGroup_Invalid;
 	}
 }
@@ -446,6 +457,10 @@ SteamMultiplayerPeer::_get_connection_status() const {
 }
 
 int SteamMultiplayerPeer::_get_available_packet_count() const {
+	// Messages queued before Steam shut down died with it; never hand them out.
+	if (SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr) {
+		return 0;
+	}
 	return incoming_packets.size();
 }
 
@@ -453,6 +468,11 @@ Error SteamMultiplayerPeer::_get_packet(const uint8_t **r_buffer, int *r_buffer_
 	ERR_FAIL_COND_V_MSG(incoming_packets.is_empty(), ERR_UNAVAILABLE,
 			"No incoming packets available."
 			);
+
+	if (SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr) {
+		current_packet = nullptr;
+		return ERR_UNAVAILABLE;
+	}
 
 	if (current_packet != nullptr) {
 		SteamAPI_SteamNetworkingMessage_t_Release(current_packet);
