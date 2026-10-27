@@ -96,20 +96,46 @@ MultiplayerPeer::TransferMode SteamMultiplayerPeer::_get_transfer_mode() const {
 }
 
 void SteamMultiplayerPeer::_disconnect_peer(int p_peer_id, bool p_force) {
+	// MultiplayerPeer contract: a forced disconnect does not emit peer_disconnected.
+	_remove_peer(p_peer_id, p_force, !p_force);
+}
+
+void SteamMultiplayerPeer::_remove_peer(int p_peer_id, bool p_force, bool p_emit) {
 	if (!peers.has(p_peer_id)) {
 		return;
 	}
 
 	Ref<SteamPacketPeer> peer = peers[p_peer_id];
-	steam_connections.erase(peer->get_connection_handle());
+	HSteamNetConnection connection = peer->get_connection_handle();
+	steam_connections.erase(connection);
 	peers.erase(p_peer_id);
+	_purge_connection_packets(connection);
 	peer->disconnect_peer(p_force);
 
 	// Complete teardown before a signal handler can start another session.
 	if (p_peer_id == 1 && connection_status != CONNECTION_DISCONNECTED) {
 		_close();
 	}
-	emit_signal("peer_disconnected", p_peer_id);
+	if (p_emit) {
+		emit_signal("peer_disconnected", p_peer_id);
+	}
+}
+
+void SteamMultiplayerPeer::_purge_connection_packets(HSteamNetConnection p_connection) {
+	// Rotate once through the queue so surviving packets keep their order.
+	int count = incoming_packets.size();
+	for (int i = 0; i < count; i++) {
+		SteamNetworkingMessage_t *message = incoming_packets.front()->get();
+		incoming_packets.pop_front();
+		if (message->m_conn == p_connection) {
+			// Same rule as _close(): never release into a Steam that has shut down.
+			if (SteamAPI_SteamNetworkingSockets_SteamAPI() != nullptr) {
+				SteamAPI_SteamNetworkingMessage_t_Release(message);
+			}
+		} else {
+			incoming_packets.push_back(message);
+		}
+	}
 }
 
 bool SteamMultiplayerPeer::_is_server() const {
@@ -199,7 +225,7 @@ void SteamMultiplayerPeer::network_connection_status_changed(
 			uint32_t connection_peer_id = peer->get_peer_id();
 			if (peers.has(connection_peer_id) &&
 					peers[connection_peer_id]->get_connection_handle() == p_status_change->m_hConn) {
-				_disconnect_peer(connection_peer_id, true);
+				_remove_peer(connection_peer_id, true, true);
 				return;
 			}
 

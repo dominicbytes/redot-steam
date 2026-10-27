@@ -2,6 +2,10 @@
 
 Port status for Redot 26.2 and 26.3.
 
+## Behavior changes
+
+- Audit item HARD-MP-015: a forced local disconnect emits no peer_disconnected signal; retiring a connection discards its queued packets. Remote and graceful disconnects still report the peer.
+
 ## Current state
 
 - Alpha qualification: incomplete for the current candidate

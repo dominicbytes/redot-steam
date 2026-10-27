@@ -57,6 +57,8 @@ public:
 
 
 private:
+	void _remove_peer(int p_peer_id, bool p_force, bool p_emit);
+	void _purge_connection_packets(HSteamNetConnection p_connection);
 	HashMap<uint32_t, Ref<SteamPacketPeer>> peers;
 	HashMap<HSteamNetConnection, Ref<SteamPacketPeer>> steam_connections;
 	List<SteamNetworkingMessage_t *> incoming_packets;

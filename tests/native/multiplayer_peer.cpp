@@ -195,6 +195,8 @@ Error create_host(int = 0);
 	}
 	std::vector<uint32_t> disconnected;
 	void _disconnect_peer(int, bool = false);
+	void _remove_peer(int, bool, bool);
+	void _purge_connection_packets(HSteamNetConnection);
 	bool refusing = false;
 	bool is_refusing_new_connections() const { return refusing; }
 	void set_refuse_new_connections(bool value) { refusing = value; }
@@ -272,10 +274,10 @@ static void lifecycle_case(const std::string &name) {
 			auto peer = pending(network, 74); peer->set_peer_id(id); network.peers[id] = peer;
 			network.on_disconnect = [&](uint32_t gone) {
 				assert(!network.peers.has(gone) && !network.steam_connections.has(74));
-				if (network.disconnected.size() == 1) { network._disconnect_peer(gone, true); }
+				if (network.disconnected.size() == 1) { network._disconnect_peer(gone, false); }
 				if (id == 1) { assert(network.create_client(100, 9) == OK); }
 			};
-			network._disconnect_peer(id, true);
+			network._disconnect_peer(id, false);
 			assert(peer->closed && network.disconnected.size() == 1);
 			if (id == 1) { assert(network.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTING); assert(network.steam_connections.has(next_connection - 1)); }
 		}
@@ -369,11 +371,34 @@ static void lifecycle_case(const std::string &name) {
 			fail_listen = fail_poll = false;
 			assert(host.create_host(5) == OK && client.create_client(100, 5) == OK);
 		}
+	} else if (name == "C9") {
+		// Retiring a connection drops its queued messages; others keep theirs, in order.
+		SteamMultiplayerPeer network; network.connection_status = SteamMultiplayerPeer::CONNECTION_CONNECTED;
+		auto gone = pending(network, 80); gone->set_peer_id(3); network._upgrade_peer(80);
+		auto kept = pending(network, 81); kept->set_peer_id(4); network._upgrade_peer(81);
+		SteamNetworkingMessage_t a{80, 1}, b{81, 2}, c{80, 3}, d{81, 4};
+		receive_batch = {&a, &b, &c, &d};
+		network._poll();
+		assert(network.incoming_packets.size() == 4);
+		network._disconnect_peer(3, false);
+		assert(a.releases == 1 && c.releases == 1 && b.releases == 0 && d.releases == 0);
+		assert(network.incoming_packets.size() == 2 && network.incoming_packets.front()->get() == &b);
+		assert(network.disconnected.size() == 1);
+		// A remote close purges too, and still reports the peer.
+		SteamNetConnectionStatusChangedCallback_t closed{81, k_ESteamNetworkingConnectionState_Connected,
+			{k_ESteamNetworkingConnectionState_ClosedByPeer, 4, 200, 0, 0}};
+		network.network_connection_status_changed(&closed);
+		assert(b.releases == 1 && d.releases == 1 && network.incoming_packets.is_empty());
+		assert(network.disconnected.size() == 2);
+		// A forced local disconnect follows the MultiplayerPeer contract: no signal.
+		auto forced = pending(network, 82); forced->set_peer_id(5); network._upgrade_peer(82);
+		network._disconnect_peer(5, true);
+		assert(network.disconnected.size() == 2 && !network.peers.has(5) && forced->closed);
 	}
 }
 int main(int argc, char **argv) {
 	std::string selected = argc > 1 ? argv[1] : "all";
-	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"}) {
+	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9"}) {
 		if (selected == "all" || selected == name) { lifecycle_case(name); }
 	}
 	if (selected != "all") { std::cout << selected << "=PASS\n"; return 0; }
