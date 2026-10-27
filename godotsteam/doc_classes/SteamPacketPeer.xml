@@ -5,6 +5,7 @@
 	</brief_description>
 	<description>
 		A PacketPeer implementation representing a peer of a Steamworks Networking Sockets connection.
+		The returned [SteamPacketPeer] can send directly to that peer. It never receives: all incoming traffic is delivered through the [SteamMultiplayerPeer].
 	</description>
 	<tutorials>
 		<link title="GodotSteam and SteamMultiplayerPeer - article by Michael Macha">https://michaelmacha.wordpress.com/2024/04/08/godotsteam-and-steammultiplayerpeer/</link>
