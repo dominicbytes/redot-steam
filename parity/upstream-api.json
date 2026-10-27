@@ -12612,7 +12612,7 @@
   "schema": 3,
   "source_hashes": {
     "godotsteam.gdextension": {
-      "downstream": "d6ab222aa32dae6f5131be8b6a5b7c90e5dac417657dafa5af1d9715042e6213",
+      "downstream": "52bbd56013244755fb0466ccfaf4e067e76d7e4897176eff41a6471cbebfe4bc",
       "upstream": "d6ab222aa32dae6f5131be8b6a5b7c90e5dac417657dafa5af1d9715042e6213"
     },
     "godotsteam/doc_classes/Steam.xml": {
