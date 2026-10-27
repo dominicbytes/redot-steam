@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <vector>
 #include <map>
 #include <string>
 #include <variant>
@@ -43,6 +44,7 @@ struct ProjectSettings {
 struct SteamProjectSettings {
 	static void register_settings();
 	static int get_max_channels();
+	static int get_max_message_size();
 };
 enum Error { OK, ERR_UNAVAILABLE, ERR_INVALID_PARAMETER, ERR_CANT_CREATE, ERR_CONNECTION_ERROR };
 static int allocations = 0;
@@ -117,6 +119,7 @@ struct SteamPacketPeer {
 
 static void transport_case(const std::string &name) {
 	auto *settings = ProjectSettings::get_singleton();
+	SteamProjectSettings::register_settings();
 	if (name == "C2") {
 		settings->set("steam/multiplayer_peer/max_channels", 4);
 		SteamPacketPeer peer; peer.set_connection_handle(1); peer.state = SteamPacketPeer::STATE_CONNECTED;
@@ -143,6 +146,11 @@ static void transport_case(const std::string &name) {
 		assert(peer.send(0, &data, 1, 0) == ERR_UNAVAILABLE && peer.ping(2) == ERR_UNAVAILABLE);
 		assert(allocations == before_alloc && sends == before_sends);
 		sockets_available = true;
+		settings->set("steam/multiplayer_peer/max_message_size", 1024);
+		std::vector<uint8_t> big(1025, 1);
+		int before = allocations;
+		assert(peer.send(0, big.data(), 1025, 0) == ERR_INVALID_PARAMETER && allocations == before);
+		assert(peer.send(0, big.data(), 1024, 0) == OK);
 	} else if (name == "C7") {
 		for (int64_t count : {-10LL, 0LL, 1LL, 4LL, 255LL, 256LL, 65537LL, 4294967296LL}) {
 			settings->set("steam/multiplayer_peer/max_channels", count);
@@ -169,7 +177,7 @@ static void transport_case(const std::string &name) {
 	} else if (name == "C8") {
 		settings->settings.clear(); settings->initial.clear();
 		SteamProjectSettings::register_settings();
-		assert(settings->settings.size() == 9 && settings->initial.size() == 9);
+		assert(settings->settings.size() == 13 && settings->initial.size() == 13);
 		for (const auto &entry : settings->settings) { assert(settings->initial[entry.first].data == entry.second.data); }
 		settings->set("steam/multiplayer_peer/max_channels", 7);
 		settings->set("steam/initialization/processes/embed_callbacks", true);

@@ -51,6 +51,10 @@ public:
 	static int get_id_in_use();
 	static int get_max_channels();
 	static int get_max_queued_packets();
+	static int get_max_message_size();
+	static int64_t get_max_queued_bytes();
+	static int get_max_pending_connections();
+	static int get_handshake_timeout_ms();
 	static int get_playtest_id();
 	static int get_tool_id();
 };

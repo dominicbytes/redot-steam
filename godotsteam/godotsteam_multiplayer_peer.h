@@ -57,10 +57,16 @@ public:
 
 
 private:
+	void _remove_peer(int p_peer_id, bool p_force, bool p_emit);
+	void _purge_connection_packets(HSteamNetConnection p_connection);
 	HashMap<uint32_t, Ref<SteamPacketPeer>> peers;
 	HashMap<HSteamNetConnection, Ref<SteamPacketPeer>> steam_connections;
+	HashMap<HSteamNetConnection, uint64_t> pending_deadlines;
+	void _expire_pending_connections();
+	int _count_pending_connections();
 	List<SteamNetworkingMessage_t *> incoming_packets;
 	SteamNetworkingMessage_t *current_packet = nullptr;
+	int64_t incoming_bytes = 0;
 
 	int target_peer = 0;
 	TransferMode transfer_mode = TRANSFER_MODE_RELIABLE;

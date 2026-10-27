@@ -100,7 +100,7 @@ Error SteamPacketPeer::send(int p_channel, const uint8_t *p_data, int p_size, in
 	ERR_FAIL_COND_V(SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr ||
 			SteamAPI_SteamNetworkingUtils_SteamAPI() == nullptr, ERR_UNAVAILABLE);
 
-	ERR_FAIL_COND_V(p_data == nullptr || p_size <= 0 || p_size > k_cbMaxSteamNetworkingSocketsMessageSizeSend, ERR_INVALID_PARAMETER);
+	ERR_FAIL_COND_V(p_data == nullptr || p_size <= 0 || p_size > SteamProjectSettings::get_max_message_size(), ERR_INVALID_PARAMETER);
 
 	ERR_FAIL_COND_V_MSG(p_channel < 0 || p_channel >= configured_lanes, ERR_INVALID_PARAMETER,
 			vformat("Channel %d is outside the configured range (0-%d). Set the number of channels in Project Settings.",
@@ -196,8 +196,7 @@ Error SteamPacketPeer::_put_packet(const uint8_t *p_buffer, int p_buffer_size) {
 }
 
 int SteamPacketPeer::_get_max_packet_size() const {
-	// Steam networking sockets max message size
-	return k_cbMaxSteamNetworkingSocketsMessageSizeSend; // 512 KB
+	return SteamProjectSettings::get_max_message_size();
 }
 
 int SteamPacketPeer::_get_available_packet_count() const {

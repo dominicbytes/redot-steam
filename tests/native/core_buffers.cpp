@@ -101,6 +101,15 @@ struct RemotePlayInput_t {
 	RemotePlayInputKey_t m_Key{1, 2, 3};
 };
 
+static uint32_t produced_ticket = 240, ticket_handle = 7;
+static bool ticket_identity = false;
+static void *SteamAPI_SteamUser() { return (void *)1; }
+static uint32_t SteamAPI_ISteamUser_GetAuthSessionTicket(void *, void *buffer, int capacity, uint32_t *out_size, const void *identity) {
+	assert(capacity == 1024 && bool(identity) == ticket_identity);
+	memset(buffer, 0x5a, std::min(produced_ticket, uint32_t(capacity)));
+	*out_size = produced_ticket;
+	return ticket_handle;
+}
 static bool sockets_available = true, utils_available = true;
 static void *SteamAPI_SteamNetworkingSockets_SteamAPI() { return sockets_available ? (void *)1 : nullptr; }
 static void *SteamAPI_SteamNetworkingUtils_SteamAPI() { return utils_available ? (void *)1 : nullptr; }
@@ -207,6 +216,8 @@ static int32_t SteamAPI_ISteamRemoteStorage_UGCRead(void *, uint64_t, void *buff
 	read_calls++; if (read_result > 0 && read_result <= capacity) { memset(buffer, 5, read_result); } return read_result;
 }
 struct Steam {
+	Dictionary getAuthSessionTicket(uint64_t remote_steam_id = 0);
+	SteamNetworkingIdentity getIdentityFromSteamID(uint64_t) { return {}; }
 	using NetworkingConfigValue = int;
 	using NetworkingConfigScope = int;
 	using NetworkingGetConfigValueResult = int;
@@ -244,6 +255,22 @@ static PackedByteArray bytes(int size) { PackedByteArray value; value.resize(siz
 static void check_messages_released() { for (auto *message : allocated) { assert(message->released); } }
 int main() {
 	Steam steam;
+	for (uint64_t remote : {uint64_t(0), uint64_t(42)}) {
+		ticket_identity = remote != 0;
+		for (uint32_t size : {0u, 240u, 1024u, 1025u}) {
+			produced_ticket = size;
+			for (uint32_t handle : {0u, 7u}) {
+				ticket_handle = handle;
+				auto ticket = steam.getAuthSessionTicket(remote);
+				uint32_t expected = handle == 0 || size > 1024 ? 0 : size;
+				assert(ticket["id"].as<uint32_t>() == (size > 1024 ? 0 : handle));
+				assert(ticket["size"].as<uint32_t>() == expected);
+				auto buffer = ticket["buffer"].as<PackedByteArray>();
+				assert(buffer.size() == expected);
+				for (uint8_t byte : buffer.values) { assert(byte == 0x5a); }
+			}
+		}
+	}
 	PackedByteArray payload; payload.values = {1, 2, 3};
 	Array messages; messages.append(payload); messages.append(bytes(0)); messages.append(payload);
 	for (bool delete_failed : {false, true}) {

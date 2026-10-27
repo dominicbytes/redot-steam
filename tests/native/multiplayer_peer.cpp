@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <map>
 #include <functional>
 #include <cstdlib>
 #include <memory>
@@ -74,8 +75,10 @@ struct SteamNetworkingMessage_t {
 	HSteamNetConnection m_conn;
 	uint32_t claimed_id;
 	int releases = 0;
+	bool malformed = false;
+	int size = 4;
 	void *GetData() { return &claimed_id; }
-	int GetSize() const { return sizeof(claimed_id); }
+	int GetSize() const { return size; }
 };
 struct MessageList {
 	std::vector<SteamNetworkingMessage_t *> entries;
@@ -92,12 +95,30 @@ static std::vector<SteamNetworkingMessage_t *> receive_batch;
 static int requested_messages = 0;
 static int receive_calls = 0;
 static int64_t configured_queue_limit = 256;
+static int64_t configured_max_message = 1024, configured_queued_bytes = 1073741824;
+constexpr int k_ESteamNetworkingConfig_RecvMaxMessageSize = 49;
+static std::map<int, int> config_values;
+static int64_t configured_pending_limit = 32, configured_handshake_timeout = 15000;
+static uint64_t now_msec = 0;
+template <typename T> using LocalVector = std::vector<T>;
+struct Time { static Time *get_singleton() { static Time t; return &t; } uint64_t get_ticks_msec() { return now_msec; } };
 struct ProjectSettings {
 	static ProjectSettings *get_singleton() { static ProjectSettings instance; return &instance; }
-	int64_t get_setting_with_override(const char *) { return configured_queue_limit; }
+	int64_t get_setting_with_override(const char *name) {
+		std::string key = name;
+		if (key == "steam/multiplayer_peer/max_pending_connections") { return configured_pending_limit; }
+		if (key == "steam/multiplayer_peer/handshake_timeout_ms") { return configured_handshake_timeout; }
+		if (key == "steam/multiplayer_peer/max_message_size") { return configured_max_message; }
+		if (key == "steam/multiplayer_peer/max_queued_bytes") { return configured_queued_bytes; }
+		return configured_queue_limit;
+	}
 };
 struct SteamProjectSettings {
 	static int get_max_queued_packets();
+	static int get_max_message_size();
+	static int64_t get_max_queued_bytes();
+	static int get_max_pending_connections();
+	static int get_handshake_timeout_ms();
 };
 static bool steam_up = true;
 static int sockets_token = 0;
@@ -112,9 +133,10 @@ static HashMap<HSteamNetConnection, int> groups;
 static int last_virtual_port = -1;
 static HSteamNetConnection next_connection = 1000;
 static bool fail_connect = false;
+static bool fail_listen = false, fail_poll = false;
 static void SteamAPI_ISteamNetworkingSockets_CloseConnection(void *, HSteamNetConnection conn, int, const char *, bool) { closes[conn]++; }
 static void SteamAPI_SteamNetworkingIdentity_SetSteamID64(uint64_t *id, uint64_t value) { *id = value; }
-static void SteamAPI_SteamNetworkingConfigValue_t_SetInt32(SteamNetworkingConfigValue_t *, int, int) {}
+static void SteamAPI_SteamNetworkingConfigValue_t_SetInt32(SteamNetworkingConfigValue_t *, int key, int value) { config_values[key] = value; }
 static HSteamNetConnection SteamAPI_ISteamNetworkingSockets_ConnectP2P(void *, uint64_t, int port, int, SteamNetworkingConfigValue_t *) {
 	last_virtual_port = port;
 	return fail_connect ? 0 : next_connection++;
@@ -154,15 +176,19 @@ struct SteamPacketPeer {
 	PeerState get_state() const { return state; }
 	void set_state(PeerState value) { state = value; }
 	Error ping(uint32_t) { return OK; }
-	Error process_ping(SteamNetworkingMessage_t *message) { set_peer_id(message->claimed_id); return OK; }
+	Error process_ping(SteamNetworkingMessage_t *message) { if (message->malformed) { return ERR_INVALID_DATA; } set_peer_id(message->claimed_id); return OK; }
 	void disconnect_peer(bool) { closed = true; state = STATE_NONE; SteamAPI_ISteamNetworkingSockets_CloseConnection(nullptr, connection_handle, 0, nullptr, false); }
 };
 struct SteamMultiplayerPeer {
 	enum { CONNECTION_DISCONNECTED, CONNECTION_CONNECTING, CONNECTION_CONNECTED, DEBUG_LEVEL_NONE };
 	HashMap<uint32_t, Ref<SteamPacketPeer>> peers;
 	HashMap<HSteamNetConnection, Ref<SteamPacketPeer>> steam_connections;
+	HashMap<HSteamNetConnection, uint64_t> pending_deadlines;
+	void _expire_pending_connections();
+	int _count_pending_connections();
 	MessageList incoming_packets;
 	SteamNetworkingMessage_t *current_packet = nullptr;
+	int64_t incoming_bytes = 0;
 	~SteamMultiplayerPeer();
 	void _close();
 	Error _get_packet(const uint8_t **, int *);
@@ -177,8 +203,9 @@ struct SteamMultiplayerPeer {
 	int _get_transfer_channel() { return 0; }
 	int _get_steam_packet_flags() { return 0; }
 	Error _put_packet(const uint8_t *, int);
-	Error _create_listen_socket(int) { listen_socket = 10; return OK; }
-	Error _create_poll_group() { poll_group = 1; return OK; }
+Error _create_listen_socket(int) { if (fail_listen) { return ERR_CANT_CREATE; } listen_socket = 10; return OK; }
+Error _create_poll_group() { if (fail_poll) { return ERR_CANT_CREATE; } poll_group = 1; return OK; }
+Error create_host(int = 0);
 	int generate_unique_id() { return 2; }
 	Error create_client(uint64_t, int = 0);
 	int unique_id = 2;
@@ -187,12 +214,15 @@ struct SteamMultiplayerPeer {
 	int connection_status = CONNECTION_CONNECTING;
 	std::vector<uint32_t> connected;
 	std::function<void(uint32_t)> on_disconnect;
+	std::function<void(uint32_t)> on_connect;
 	void emit_signal(const char *name, uint32_t id) {
-		if (std::string(name) == "peer_connected") { connected.push_back(id); }
+		if (std::string(name) == "peer_connected") { connected.push_back(id); if (on_connect) { on_connect(id); } }
 		else { disconnected.push_back(id); if (on_disconnect) { on_disconnect(id); } }
 	}
 	std::vector<uint32_t> disconnected;
 	void _disconnect_peer(int, bool = false);
+	void _remove_peer(int, bool, bool);
+	void _purge_connection_packets(HSteamNetConnection);
 	bool refusing = false;
 	bool is_refusing_new_connections() const { return refusing; }
 	void set_refuse_new_connections(bool value) { refusing = value; }
@@ -270,10 +300,10 @@ static void lifecycle_case(const std::string &name) {
 			auto peer = pending(network, 74); peer->set_peer_id(id); network.peers[id] = peer;
 			network.on_disconnect = [&](uint32_t gone) {
 				assert(!network.peers.has(gone) && !network.steam_connections.has(74));
-				if (network.disconnected.size() == 1) { network._disconnect_peer(gone, true); }
+				if (network.disconnected.size() == 1) { network._disconnect_peer(gone, false); }
 				if (id == 1) { assert(network.create_client(100, 9) == OK); }
 			};
-			network._disconnect_peer(id, true);
+			network._disconnect_peer(id, false);
 			assert(peer->closed && network.disconnected.size() == 1);
 			if (id == 1) { assert(network.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTING); assert(network.steam_connections.has(next_connection - 1)); }
 		}
@@ -350,11 +380,169 @@ static void lifecycle_case(const std::string &name) {
 		reader._close();
 		steam_up = true;
 		assert(borrowed.releases == 0 && waiting.releases == 0);
+	} else if (name == "C8") {
+		// A failed create leaves no socket, poll group, or half-started session behind.
+		for (int which = 0; which < 2; which++) {
+			SteamMultiplayerPeer host; host._close();
+			SteamMultiplayerPeer client; client._close();
+			int before = listen_closes;
+			fail_listen = which == 0; fail_poll = which == 1;
+			assert(host.create_host(5) == ERR_CANT_CREATE);
+			assert(host.listen_socket == k_HSteamListenSocket_Invalid && host.poll_group == k_HSteamNetPollGroup_Invalid);
+			assert(!host.server && host.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+			assert(listen_closes == before + which);
+			assert(client.create_client(100, 5) == ERR_CANT_CREATE);
+			assert(client.listen_socket == k_HSteamListenSocket_Invalid && client.steam_connections.entries.empty());
+			assert(client.expected_host_steam_id == 0 && client.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+			fail_listen = fail_poll = false;
+			assert(host.create_host(5) == OK && client.create_client(100, 5) == OK);
+		}
+	} else if (name == "C9") {
+		// Retiring a connection drops its queued messages; others keep theirs, in order.
+		SteamMultiplayerPeer network; network.connection_status = SteamMultiplayerPeer::CONNECTION_CONNECTED;
+		auto gone = pending(network, 80); gone->set_peer_id(3); network._upgrade_peer(80);
+		auto kept = pending(network, 81); kept->set_peer_id(4); network._upgrade_peer(81);
+		SteamNetworkingMessage_t a{80, 1}, b{81, 2}, c{80, 3}, d{81, 4};
+		receive_batch = {&a, &b, &c, &d};
+		network._poll();
+		assert(network.incoming_packets.size() == 4);
+		network._disconnect_peer(3, false);
+		assert(a.releases == 1 && c.releases == 1 && b.releases == 0 && d.releases == 0);
+		assert(network.incoming_packets.size() == 2 && network.incoming_packets.front()->get() == &b);
+		assert(network.disconnected.size() == 1);
+		// A remote close purges too, and still reports the peer.
+		SteamNetConnectionStatusChangedCallback_t closed{81, k_ESteamNetworkingConnectionState_Connected,
+			{k_ESteamNetworkingConnectionState_ClosedByPeer, 4, 200, 0, 0}};
+		network.network_connection_status_changed(&closed);
+		assert(b.releases == 1 && d.releases == 1 && network.incoming_packets.is_empty());
+		assert(network.disconnected.size() == 2);
+		// A forced local disconnect follows the MultiplayerPeer contract: no signal.
+		auto forced = pending(network, 82); forced->set_peer_id(5); network._upgrade_peer(82);
+		network._disconnect_peer(5, true);
+		assert(network.disconnected.size() == 2 && !network.peers.has(5) && forced->closed);
+	} else if (name == "C10") {
+		// A malformed first message closes the connection instead of leaving it pending.
+		SteamMultiplayerPeer network;
+		auto peer = pending(network, 83);
+		SteamNetworkingMessage_t junk{83, 3}; junk.malformed = true;
+		receive_batch = {&junk};
+		network._poll();
+		assert(peer->closed && !network.steam_connections.has(83) && junk.releases == 1 && network.connected.empty());
+		// Un-admitted connections are capped; the next incoming attempt is refused.
+		configured_pending_limit = 2;
+		SteamMultiplayerPeer host; host.server = true; host.unique_id = 1; host.listen_socket = 34;
+		for (HSteamNetConnection conn : {84u, 85u, 86u}) {
+			SteamNetConnectionStatusChangedCallback_t event{conn, 0, {k_ESteamNetworkingConnectionState_Connecting, 0, 200, 34, 0}};
+			host.network_connection_status_changed(&event);
+		}
+		assert(host.steam_connections.has(84) && host.steam_connections.has(85));
+		assert(!host.steam_connections.has(86) && closes[86] == 1);
+		configured_pending_limit = 32;
+	} else if (name == "C11") {
+		// A connection that never completes the handshake expires; admitted peers never do.
+		now_msec = 1000;
+		SteamMultiplayerPeer host; host.server = true; host.unique_id = 1; host.listen_socket = 35;
+		for (HSteamNetConnection conn : {87u, 88u}) {
+			SteamNetConnectionStatusChangedCallback_t event{conn, 0, {k_ESteamNetworkingConnectionState_Connecting, 0, 200, 35, 0}};
+			host.network_connection_status_changed(&event);
+		}
+		auto stalled = host.steam_connections[87];
+		auto admitted = host.steam_connections[88];
+		admitted->state = SteamPacketPeer::STATE_CONNECTED;
+		SteamNetworkingMessage_t hello{88, 3};
+		receive_batch = {&hello};
+		host._poll();
+		assert(host.peers.has(3));
+		now_msec = 1000 + configured_handshake_timeout - 1; host._poll();
+		assert(host.steam_connections.has(87) && !stalled->closed);
+		now_msec = 1000 + configured_handshake_timeout; host._poll();
+		assert(!host.steam_connections.has(87) && stalled->closed);
+		assert(host.steam_connections.has(88) && host.peers.has(3) && !admitted->closed);
+		// A client whose host never answers gives up instead of waiting forever.
+		SteamMultiplayerPeer client; client._close();
+		assert(client.create_client(100, 9) == OK);
+		HSteamNetConnection timed_out_host = client.host_connection;
+		now_msec += configured_handshake_timeout; client._poll();
+		assert(closes[timed_out_host] == 1);
+		assert(client.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+		// Same, when the host's first message was malformed and erased the host connection.
+		SteamMultiplayerPeer rejected; rejected._close();
+		assert(rejected.create_client(100, 9) == OK);
+		HSteamNetConnection host_conn = next_connection - 1;
+		SteamNetworkingMessage_t bad{host_conn, 1}; bad.malformed = true;
+		receive_batch = {&bad};
+		rejected._poll();
+		assert(!rejected.steam_connections.has(host_conn) && bad.releases == 1);
+		assert(rejected.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTING);
+		now_msec += configured_handshake_timeout; rejected._poll();
+		assert(rejected.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+		// A lobby member admitted first must not hide a host whose handshake was malformed.
+		SteamMultiplayerPeer mesh_first; mesh_first._close();
+		assert(mesh_first.create_client(100, 9) == OK);
+		HSteamNetConnection mesh_host = next_connection - 1;
+		auto member = pending(mesh_first, 94, 300);
+		SteamNetworkingMessage_t member_hello{94, 5}, host_junk{mesh_host, 1};
+		host_junk.malformed = true;
+		receive_batch = {&member_hello, &host_junk};
+		mesh_first._poll();
+		assert(mesh_first.peers.has(5) && !mesh_first.steam_connections.has(mesh_host));
+		assert(mesh_first.connection_status == SteamMultiplayerPeer::CONNECTION_CONNECTED);
+		now_msec += configured_handshake_timeout; mesh_first._poll();
+		assert(mesh_first.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+		// A peer_connected handler that shuts Steam down ends the batch without touching Steam.
+		SteamMultiplayerPeer stopping;
+		pending(stopping, 92);
+		pending(stopping, 93);
+		stopping.on_connect = [&](uint32_t) { steam_up = false; };
+		SteamNetworkingMessage_t hello_first{92, 3}, after_shutdown{93, 4};
+		receive_batch = {&hello_first, &after_shutdown};
+		stopping._poll();
+		steam_up = true;
+		assert(hello_first.releases == 1 && after_shutdown.releases == 0 && stopping.peers.has(3));
+		stopping.on_connect = nullptr;
+		receive_batch.clear();
+		now_msec = 0;
+	} else if (name == "C12") {
+		// Queued bytes stay within budget + one message; connections carry the receive cap.
+		configured_max_message = 1024; configured_queued_bytes = 65536;
+		SteamMultiplayerPeer network; network._close(); assert(network.create_client(100, 9) == OK);
+		assert(config_values[k_ESteamNetworkingConfig_RecvMaxMessageSize] == 1024);
+		SteamMultiplayerPeer queue; queue.connection_status = SteamMultiplayerPeer::CONNECTION_CONNECTED;
+		auto sender = pending(queue, 89); sender->set_peer_id(3); queue._upgrade_peer(89);
+		std::vector<SteamNetworkingMessage_t> burst(100, {89, 9});
+		receive_batch.clear();
+		for (auto &message : burst) { message.size = 1024; receive_batch.push_back(&message); }
+		// 64 KiB budget / 1 KiB messages: 65 fit before the budget is crossed, then stop.
+		int calls = receive_calls;
+		queue._poll();
+		assert(receive_calls == calls + 1 && requested_messages == 65);
+		assert(queue.incoming_packets.size() == 65 && queue.incoming_bytes == 66560);
+		calls = receive_calls; queue._poll();
+		assert(receive_calls == calls);
+		const uint8_t *buffer = nullptr; int size = 0;
+		assert(queue._get_packet(&buffer, &size) == OK && queue._get_packet(&buffer, &size) == OK);
+		assert(queue.incoming_bytes == 64512);
+		queue._poll();
+		assert(requested_messages == 2 && queue.incoming_bytes == 66560);
+		queue._close();
+		assert(queue.incoming_bytes == 0);
+		receive_batch.clear();
+		// Small messages still drain a full 255-message batch in one poll (several receive calls).
+		configured_queued_bytes = 65536;
+		SteamMultiplayerPeer fast; fast.connection_status = SteamMultiplayerPeer::CONNECTION_CONNECTED;
+		auto chatty = pending(fast, 90); chatty->set_peer_id(3); fast._upgrade_peer(90);
+		std::vector<SteamNetworkingMessage_t> small(300, {90, 9});
+		for (auto &message : small) { receive_batch.push_back(&message); }
+		fast._poll();
+		assert(fast.incoming_packets.size() == 255);
+		fast._close();
+		receive_batch.clear();
+		configured_max_message = 1024; configured_queued_bytes = 1073741824;
 	}
 }
 int main(int argc, char **argv) {
 	std::string selected = argc > 1 ? argv[1] : "all";
-	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6", "C7"}) {
+	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12"}) {
 		if (selected == "all" || selected == name) { lifecycle_case(name); }
 	}
 	if (selected != "all") { std::cout << selected << "=PASS\n"; return 0; }

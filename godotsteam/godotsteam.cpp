@@ -6281,6 +6281,12 @@ Dictionary Steam::getAuthSessionTicket(uint64_t remote_steam_id) {
 	else {
 		id = SteamAPI_ISteamUser_GetAuthSessionTicket(SteamAPI_SteamUser(), buffer.ptrw(), ticket_size, &ticket_size, NULL);
 	}
+	// Return only the bytes Steam produced; an invalid handle yields no ticket.
+	if (id == 0 || ticket_size > 1024) {
+		id = 0;
+		ticket_size = 0;
+	}
+	buffer.resize(ticket_size);
 	auth_ticket["id"] = id;
 	auth_ticket["buffer"] = buffer;
 	auth_ticket["size"] = ticket_size;

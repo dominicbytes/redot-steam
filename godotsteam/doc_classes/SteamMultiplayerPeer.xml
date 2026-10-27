@@ -4,8 +4,11 @@
 		Provides a bridge between Steam Networking Sockets and Godot's high level [MultiplayerAPI].
 	</brief_description>
 	<description>
-		A [MultiplayerPeer] implementation that connects Steam Networking Sockets to Godot's high level multiplayer API. Should be passed to [MultiplayerAPI].multiplayer_peer after being initialized by calling [code]create_lobby[/code] or [code]connect_lobby[/code].
+		A [MultiplayerPeer] implementation that connects Steam Networking Sockets to Godot's high level multiplayer API. Should be passed to [MultiplayerAPI].multiplayer_peer after being initialized by calling [method host_with_lobby] or [method connect_to_lobby], or directly with [method create_host] or [method create_client].
 		[constant MultiplayerPeer.TRANSFER_MODE_UNRELIABLE_ORDERED] is sent reliably and in order on its Steam lane, using the same transport as [constant MultiplayerPeer.TRANSFER_MODE_RELIABLE]. Received packets report the reliable mode. Lost packets are retransmitted instead of discarding obsolete updates, so newer messages on the same lane can wait for retransmission and experience increased latency and send-buffer pressure. Ordering is not guaranteed across different lanes. This behavior preserves compatibility with existing peers.
+		A forced [method MultiplayerPeer.disconnect_peer] does not emit [signal MultiplayerPeer.peer_disconnected]; packets already queued from a disconnected peer are discarded.
+		Malformed first messages close the connection. New incoming connections are refused while [code]steam/multiplayer_peer/max_pending_connections[/code] connections (default 32, range 1-4096) are still handshaking; outgoing connections are never refused. [code]steam/multiplayer_peer/handshake_timeout_ms[/code] defaults to 15000 (range 1000-120000 ms). The pending count includes outgoing lobby-mesh connections still handshaking: [method host_with_lobby] and [method connect_to_lobby] dial every member, so games with lobbies larger than about 24 should raise the pending limit.
+		[code]steam/multiplayer_peer/max_message_size[/code] defaults to 524288 bytes (range 1024-524288); Steam closes connections that send larger messages. Both sides of a session must use the same value. [code]steam/multiplayer_peer/max_queued_bytes[/code] defaults to 8388608 bytes (range 65536-1073741824). The incoming queue is bounded by that budget plus one maximum-size message, as well as [code]max_queued_packets[/code]. A packet borrowed by get_packet is held separately until the next read or close.
 	</description>
 	<tutorials>
 		<link title="GodotSteam and SteamMultiplayerPeer - article by Michael Macha">https://michaelmacha.wordpress.com/2024/04/08/godotsteam-and-steammultiplayerpeer/</link>
@@ -57,7 +60,7 @@
 			<return type="SteamPacketPeer" />
 			<param index="0" name="peer_id" type="int" />
 			<description>
-				Returns a [SteamPacketPeer] [RefCounted] object on success; otherwise, null.
+				Returns a [SteamPacketPeer] [RefCounted] object on success; otherwise, null. The returned [SteamPacketPeer] can send directly to that peer. It never receives: all incoming traffic is delivered through the [SteamMultiplayerPeer].
 			</description>
 		</method>
 		<method name="get_peer_id_for_steam_id">
@@ -89,10 +92,10 @@
 			The debug level.
 		</member>
 		<member name="no_delay" type="bool" setter="set_no_delay" getter="get_no_delay" default="false">
-			Whether or not to use [constant Steam.NETWORKING_SEND_NO_NAGLE] flag.
+			Whether or not to use [constant Steam.NETWORKING_SEND_NO_DELAY] flag.
 		</member>
 		<member name="no_nagle" type="bool" setter="set_no_nagle" getter="get_no_nagle" default="false">
-			Whether or not to use [constant Steam.NETWORKING_SEND_NO_DELAY] flag.
+			Whether or not to use [constant Steam.NETWORKING_SEND_NO_NAGLE] flag.
 		</member>
 		<member name="server_relay" type="bool" setter="set_server_relay" getter="get_server_relay" default="false">
 		</member>
