@@ -561,11 +561,14 @@ Error SteamMultiplayerPeer::create_host(int p_virtual_port) {
 	expected_host_steam_id = 0;
 	unique_id = 1; // Server is always peer ID 1
 
-	Error socket_created = _create_listen_socket(p_virtual_port);
-	ERR_FAIL_COND_V(socket_created != OK, socket_created);
-
-	Error poll_group_created = _create_poll_group();
-	ERR_FAIL_COND_V(poll_group_created != OK, poll_group_created);
+	Error created = _create_listen_socket(p_virtual_port);
+	if (created == OK) {
+		created = _create_poll_group();
+	}
+	if (created != OK) {
+		_close();
+	}
+	ERR_FAIL_COND_V(created != OK, created);
 
 	set_refuse_new_connections(false);
 	connection_status = CONNECTION_CONNECTED;
@@ -582,11 +585,14 @@ Error SteamMultiplayerPeer::create_client(uint64_t p_host_steam_id, int p_virtua
 	unique_id = generate_unique_id();
 
 	// We create a listen socket in all cases as we need to handle true P2P
-	Error socket_created = _create_listen_socket(p_virtual_port);
-	ERR_FAIL_COND_V(socket_created != OK, socket_created);
-
-	Error poll_group_created = _create_poll_group();
-	ERR_FAIL_COND_V(poll_group_created != OK, poll_group_created);
+	Error created = _create_listen_socket(p_virtual_port);
+	if (created == OK) {
+		created = _create_poll_group();
+	}
+	if (created != OK) {
+		_close();
+	}
+	ERR_FAIL_COND_V(created != OK, created);
 
 	Error peer_created = add_peer(p_host_steam_id, p_virtual_port);
 	if (peer_created != OK) {

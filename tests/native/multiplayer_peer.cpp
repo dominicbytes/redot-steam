@@ -112,6 +112,7 @@ static HashMap<HSteamNetConnection, int> groups;
 static int last_virtual_port = -1;
 static HSteamNetConnection next_connection = 1000;
 static bool fail_connect = false;
+static bool fail_listen = false, fail_poll = false;
 static void SteamAPI_ISteamNetworkingSockets_CloseConnection(void *, HSteamNetConnection conn, int, const char *, bool) { closes[conn]++; }
 static void SteamAPI_SteamNetworkingIdentity_SetSteamID64(uint64_t *id, uint64_t value) { *id = value; }
 static void SteamAPI_SteamNetworkingConfigValue_t_SetInt32(SteamNetworkingConfigValue_t *, int, int) {}
@@ -177,8 +178,9 @@ struct SteamMultiplayerPeer {
 	int _get_transfer_channel() { return 0; }
 	int _get_steam_packet_flags() { return 0; }
 	Error _put_packet(const uint8_t *, int);
-	Error _create_listen_socket(int) { listen_socket = 10; return OK; }
-	Error _create_poll_group() { poll_group = 1; return OK; }
+Error _create_listen_socket(int) { if (fail_listen) { return ERR_CANT_CREATE; } listen_socket = 10; return OK; }
+Error _create_poll_group() { if (fail_poll) { return ERR_CANT_CREATE; } poll_group = 1; return OK; }
+Error create_host(int = 0);
 	int generate_unique_id() { return 2; }
 	Error create_client(uint64_t, int = 0);
 	int unique_id = 2;
@@ -350,11 +352,28 @@ static void lifecycle_case(const std::string &name) {
 		reader._close();
 		steam_up = true;
 		assert(borrowed.releases == 0 && waiting.releases == 0);
+	} else if (name == "C8") {
+		// A failed create leaves no socket, poll group, or half-started session behind.
+		for (int which = 0; which < 2; which++) {
+			SteamMultiplayerPeer host; host._close();
+			SteamMultiplayerPeer client; client._close();
+			int before = listen_closes;
+			fail_listen = which == 0; fail_poll = which == 1;
+			assert(host.create_host(5) == ERR_CANT_CREATE);
+			assert(host.listen_socket == k_HSteamListenSocket_Invalid && host.poll_group == k_HSteamNetPollGroup_Invalid);
+			assert(!host.server && host.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+			assert(listen_closes == before + which);
+			assert(client.create_client(100, 5) == ERR_CANT_CREATE);
+			assert(client.listen_socket == k_HSteamListenSocket_Invalid && client.steam_connections.entries.empty());
+			assert(client.expected_host_steam_id == 0 && client.connection_status == SteamMultiplayerPeer::CONNECTION_DISCONNECTED);
+			fail_listen = fail_poll = false;
+			assert(host.create_host(5) == OK && client.create_client(100, 5) == OK);
+		}
 	}
 }
 int main(int argc, char **argv) {
 	std::string selected = argc > 1 ? argv[1] : "all";
-	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6", "C7"}) {
+	for (const char *name : {"C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"}) {
 		if (selected == "all" || selected == name) { lifecycle_case(name); }
 	}
 	if (selected != "all") { std::cout << selected << "=PASS\n"; return 0; }
