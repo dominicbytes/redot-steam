@@ -106,6 +106,28 @@ void SteamProjectSettings::register_settings() {
 	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/max_queued_packets", 256);
 	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/max_queued_packets", true);
 
+	if (!ProjectSettings::get_singleton()->has_setting("steam/multiplayer_peer/max_pending_connections")) {
+		ProjectSettings::get_singleton()->set("steam/multiplayer_peer/max_pending_connections", 32);
+	}
+	property_info["name"] = "steam/multiplayer_peer/max_pending_connections";
+	property_info["type"] = Variant::INT;
+	property_info["hint"] = PROPERTY_HINT_RANGE;
+	property_info["hint_string"] = "1,4096,1";
+	ProjectSettings::get_singleton()->add_property_info(property_info);
+	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/max_pending_connections", 32);
+	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/max_pending_connections", true);
+
+	if (!ProjectSettings::get_singleton()->has_setting("steam/multiplayer_peer/handshake_timeout_ms")) {
+		ProjectSettings::get_singleton()->set("steam/multiplayer_peer/handshake_timeout_ms", 15000);
+	}
+	property_info["name"] = "steam/multiplayer_peer/handshake_timeout_ms";
+	property_info["type"] = Variant::INT;
+	property_info["hint"] = PROPERTY_HINT_RANGE;
+	property_info["hint_string"] = "1000,120000,1";
+	ProjectSettings::get_singleton()->add_property_info(property_info);
+	ProjectSettings::get_singleton()->set_initial_value("steam/multiplayer_peer/handshake_timeout_ms", 15000);
+	ProjectSettings::get_singleton()->set_as_basic("steam/multiplayer_peer/handshake_timeout_ms", true);
+
 	// Port in any pre-GodotSteam v4.20 settings
 	if (ProjectSettings::get_singleton()->has_setting("steam/initialization/app_id")) {
 		WARN_PRINT_ONCE("Found older app ID project setting, converting it");
@@ -181,6 +203,24 @@ int SteamProjectSettings::get_max_queued_packets() {
 		return INT32_MAX;
 	}
 	return limit > 0 ? (int)limit : 1;
+}
+
+
+int SteamProjectSettings::get_max_pending_connections() {
+	int64_t limit = ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/max_pending_connections");
+	if (limit > 4096) {
+		return 4096;
+	}
+	return limit > 0 ? (int)limit : 1;
+}
+
+
+int SteamProjectSettings::get_handshake_timeout_ms() {
+	int64_t timeout = ProjectSettings::get_singleton()->get_setting_with_override("steam/multiplayer_peer/handshake_timeout_ms");
+	if (timeout > 120000) {
+		return 120000;
+	}
+	return timeout >= 1000 ? (int)timeout : 1000;
 }
 
 

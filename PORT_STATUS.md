@@ -4,6 +4,8 @@ Port status for Redot 26.2 and 26.3.
 
 ## Behavior changes
 
+- Audit item HARD-MP-013: malformed first messages close the connection. New incoming connections are refused while 32 connections are still handshaking (outgoing connections are never refused), and handshakes expire after 15 seconds, by default, configured by `steam/multiplayer_peer/max_pending_connections` (1-4096) and `steam/multiplayer_peer/handshake_timeout_ms` (1000-120000). The cap counts outgoing lobby-mesh connections still handshaking; lobbies larger than about 24 should raise the pending limit.
+
 - Audit item HARD-MP-015: a forced local disconnect emits no peer_disconnected signal; retiring a connection discards its queued packets. Remote and graceful disconnects still report the peer.
 
 ## Current state
