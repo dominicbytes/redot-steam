@@ -28,6 +28,7 @@
 
 
 #include <godot_cpp/core/math.hpp>
+#include <godot_cpp/classes/time.hpp>
 
 #include "godotsteam_multiplayer_peer.h"
 
@@ -146,7 +147,54 @@ bool SteamMultiplayerPeer::_is_server_relay_supported() const {
 	return server_relay;
 }
 
+int SteamMultiplayerPeer::_count_pending_connections() {
+	int pending = 0;
+	for (KeyValue<HSteamNetConnection, Ref<SteamPacketPeer>> &E : steam_connections) {
+		uint32_t peer_id = E.value->get_peer_id();
+		if (!peers.has(peer_id) || peers[peer_id]->get_connection_handle() != E.key) {
+			pending++;
+		}
+	}
+	return pending;
+}
+
+void SteamMultiplayerPeer::_expire_pending_connections() {
+	uint64_t now = Time::get_singleton()->get_ticks_msec();
+	LocalVector<HSteamNetConnection> expired;
+	for (KeyValue<HSteamNetConnection, uint64_t> &E : pending_deadlines) {
+		if (now >= E.value) {
+			expired.push_back(E.key);
+		}
+	}
+	for (HSteamNetConnection connection : expired) {
+		pending_deadlines.erase(connection);
+		// The host connection can be erased without _close() (malformed or rejected
+		// handshake), and another lobby member may already have marked the client
+		// connected. A client whose host never completed the handshake must still give up.
+		bool host_admitted = peers.has(1) && peers[1]->get_connection_handle() == connection;
+		if (connection == host_connection && !host_admitted) {
+			_close();
+			return;
+		}
+		if (!steam_connections.has(connection)) {
+			continue;
+		}
+		Ref<SteamPacketPeer> peer = steam_connections[connection];
+		uint32_t peer_id = peer->get_peer_id();
+		if (peers.has(peer_id) && peers[peer_id]->get_connection_handle() == connection) {
+			continue; // Admitted in time.
+		}
+		peer->disconnect_peer(true);
+		steam_connections.erase(connection);
+		if (connection == host_connection) {
+			_close();
+			return;
+		}
+	}
+}
+
 void SteamMultiplayerPeer::_poll() {
+	_expire_pending_connections();
 	if (SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr || poll_group == k_HSteamNetPollGroup_Invalid) {
 		return;
 	}
@@ -166,6 +214,10 @@ void SteamMultiplayerPeer::_poll() {
 
 	for (int i = 0; i < number_messages; i++) {
 		SteamNetworkingMessage_t *message = messages[i];
+		if (SteamAPI_SteamNetworkingSockets_SteamAPI() == nullptr) {
+			// A signal handler shut Steam down; the rest of the batch died with it.
+			return;
+		}
 
 		if (!steam_connections.has(message->m_conn)) {
 			SteamAPI_SteamNetworkingMessage_t_Release(message);
@@ -182,10 +234,16 @@ void SteamMultiplayerPeer::_poll() {
 				SteamAPI_SteamNetworkingMessage_t_Release(message);
 			}
 		} else {
-			if (peer->process_ping(message) == OK) {
-				_upgrade_peer(message->m_conn);
-			}
+			HSteamNetConnection connection = message->m_conn;
+			Error handshake = peer->process_ping(message);
 			SteamAPI_SteamNetworkingMessage_t_Release(message);
+			if (handshake == OK) {
+				_upgrade_peer(connection);
+			} else {
+				// A first message that is not a peer-ID handshake ends the connection.
+				peer->disconnect_peer(true);
+				steam_connections.erase(connection);
+			}
 		}
 	}
 }
@@ -256,6 +314,13 @@ void SteamMultiplayerPeer::network_connection_status_changed(
 					SteamAPI_ISteamNetworkingSockets_CloseConnection(
 							SteamAPI_SteamNetworkingSockets_SteamAPI(), p_status_change->m_hConn, 0,
 							"Connection refused by application.", false);
+					return;
+				}
+
+				if (_count_pending_connections() >= SteamProjectSettings::get_max_pending_connections()) {
+					SteamAPI_ISteamNetworkingSockets_CloseConnection(
+							SteamAPI_SteamNetworkingSockets_SteamAPI(), p_status_change->m_hConn, 0,
+							"Too many pending connections.", false);
 					return;
 				}
 
@@ -440,6 +505,7 @@ void SteamMultiplayerPeer::_close() {
 	}
 	steam_connections.clear();
 	peers.clear();
+	pending_deadlines.clear();
 
 	if (current_packet != nullptr) {
 		if (steam_alive) {
@@ -669,6 +735,8 @@ void SteamMultiplayerPeer::_add_pending_peer(
 	peer->set_state(p_peer_state);
 
 	steam_connections[p_connection_handle] = peer;
+	pending_deadlines[p_connection_handle] = Time::get_singleton()->get_ticks_msec() +
+			SteamProjectSettings::get_handshake_timeout_ms();
 }
 
 void SteamMultiplayerPeer::_upgrade_peer(

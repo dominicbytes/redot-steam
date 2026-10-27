@@ -61,6 +61,9 @@ private:
 	void _purge_connection_packets(HSteamNetConnection p_connection);
 	HashMap<uint32_t, Ref<SteamPacketPeer>> peers;
 	HashMap<HSteamNetConnection, Ref<SteamPacketPeer>> steam_connections;
+	HashMap<HSteamNetConnection, uint64_t> pending_deadlines;
+	void _expire_pending_connections();
+	int _count_pending_connections();
 	List<SteamNetworkingMessage_t *> incoming_packets;
 	SteamNetworkingMessage_t *current_packet = nullptr;
 

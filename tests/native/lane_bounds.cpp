@@ -169,7 +169,7 @@ static void transport_case(const std::string &name) {
 	} else if (name == "C8") {
 		settings->settings.clear(); settings->initial.clear();
 		SteamProjectSettings::register_settings();
-		assert(settings->settings.size() == 9 && settings->initial.size() == 9);
+		assert(settings->settings.size() == 11 && settings->initial.size() == 11);
 		for (const auto &entry : settings->settings) { assert(settings->initial[entry.first].data == entry.second.data); }
 		settings->set("steam/multiplayer_peer/max_channels", 7);
 		settings->set("steam/initialization/processes/embed_callbacks", true);

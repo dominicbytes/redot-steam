@@ -35,13 +35,15 @@ def method(source, signature):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-ref", help="Test production methods from a git revision")
-    parser.add_argument("--case", default="all", choices=['all', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'])
+    parser.add_argument("--case", default="all", choices=['all', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11'])
     args = parser.parse_args()
     source = source_text("godotsteam/godotsteam_multiplayer_peer.cpp", args.source_ref)
     bodies = "\n".join(method(source, signature) for signature in (
         "Error SteamMultiplayerPeer::create_host(",
         "void SteamMultiplayerPeer::_remove_peer(",
         "void SteamMultiplayerPeer::_purge_connection_packets(",
+        "void SteamMultiplayerPeer::_expire_pending_connections(",
+        "int SteamMultiplayerPeer::_count_pending_connections(",
         "void SteamMultiplayerPeer::_poll()",
         "void SteamMultiplayerPeer::_upgrade_peer(",
         "void SteamMultiplayerPeer::network_connection_status_changed(",
@@ -57,6 +59,8 @@ def main():
     ))
     settings = source_text("godotsteam/godotsteam_project_settings.cpp", args.source_ref)
     bodies += "\n" + method(settings, "int SteamProjectSettings::get_max_queued_packets()")
+    bodies += "\n" + method(settings, "int SteamProjectSettings::get_max_pending_connections()")
+    bodies += "\n" + method(settings, "int SteamProjectSettings::get_handshake_timeout_ms()")
     harness = (ROOT / "tests/native/multiplayer_peer.cpp").read_text(encoding="utf-8")
     compiler = os.environ.get("CXX") or shutil.which("cl") or shutil.which("c++")
     if not compiler:
