@@ -15,6 +15,8 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Verify binding pin
+        run: test "$(git -C godot-cpp rev-parse HEAD)" = "9e7161bd7a3572a36ffa93109e73169861e9f834"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"

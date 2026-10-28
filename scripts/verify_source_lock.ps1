@@ -41,7 +41,7 @@ $checks | ConvertTo-Json -Depth 3
 
 if (-not $checks.steamworks_header_present) { throw "Steamworks SDK headers are missing" }
 if (-not $checks.steamworks_165_features) { throw "Steamworks SDK does not expose the expected 1.65 ISteamUtils surface" }
-if ($checks.godot_cpp_commit -ne "6388e26dd8a42071f65f764a3ef3d9523dda3d6e") { throw "godot-cpp pin mismatch" }
+if ($checks.godot_cpp_commit -ne "9e7161bd7a3572a36ffa93109e73169861e9f834") { throw "redot-cpp pin mismatch" }
 if (-not $engineHashes.ContainsKey($checks.redot_version) -or $checks.redot_sha256 -notin $engineHashes[$checks.redot_version]) { throw "Redot binary version/hash mismatch" }
 if ($checks.extension_api_sha256 -ne "177E7796166929B2193C9CCE2FD32F59601A0147D0D1E7FE904B94E8F69F6577") { throw "Redot API hash mismatch" }
 
