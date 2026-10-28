@@ -10,7 +10,7 @@
 | Selected baseline | Codeberg `gdextension` commit `8e0b976d0ae02a23c35daecf32c6b7bfeba0da08`, GodotSteam 4.21 |
 | Rejected baseline shortcut | v4.5.2-gde is GodotSteam 4.5.2 with `compatibility_minimum = 4.1`; it is not evidence of Godot Engine 4.5.2 compatibility |
 | Modern candidate commits | v4.19.1-gde `64e022aca284c30a97846fa10470741267c37c94`; v4.20.1-gde `c693f6345ea19ede29b70d43d2166414be68eb0a`; v4.21-gde `807b7c97b9fa35e33406e38977dd6681725a7b4b` |
-| Modern candidate godot-cpp pin | `6388e26dd8a42071f65f764a3ef3d9523dda3d6e` on declared branch `4.4` |
+| Binding fork | https://github.com/dominicbytes/redot-cpp at `9e7161bd7a3572a36ffa93109e73169861e9f834` (checkout directory `godot-cpp`) |
 | License | MIT source; Steamworks SDK restricted/proprietary |
 | Redot binding ABI baseline | `26.2.stable.official.4f5b14aba`; full commit `4f5b14abade2239104847d03d8f9056e4467cfcd`; Windows x86_64 binary SHA-256 `10DFBEFC273536F0C65903D6429E531C30133820BF0FA842F2D6E6FB81DB1D42` |
 | Additional Windows runtime | `26.3.stable.official.85e520394`; commit `85e5203945af15755dd2f66cb6fdf7545fd88c0b`; x86_64 debug/release compatibility smoke using the unchanged 26.2 ABI; Linux 26.3 unverified |

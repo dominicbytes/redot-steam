@@ -4,9 +4,9 @@
 
 RedotSteam derives from GodotSteam and preserves its MIT license and contributor attribution. See `license.md` and the unchanged upstream `UPSTREAM_README.md`.
 
-## Redot Engine and godot-cpp
+## Redot Engine and redot-cpp
 
-Redot API artifacts in `redot-api/26.2/` were generated from Redot Engine LTS `26.2.stable.official.4f5b14aba`. The build uses the MIT-licensed `godot-cpp` bindings at the commit recorded in `UPSTREAM_LOCK.md`.
+Redot API artifacts in `redot-api/26.2/` were generated from Redot Engine LTS `26.2.stable.official.4f5b14aba`. The build uses the MIT-licensed `redot-cpp` fork bindings at the commit recorded in `UPSTREAM_LOCK.md`.
 
 ## Steamworks SDK
 
