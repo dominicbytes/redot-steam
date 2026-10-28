@@ -2,7 +2,7 @@
 class_name GodotSteamPlugin
 extends EditorPlugin
 
-const EDITOR_PANEL = preload("uid://cyniebd6yahu5")
+const EDITOR_PANEL = preload("editor/steamworks_panel.tscn")
 
 static var dock_frame: Control
 
